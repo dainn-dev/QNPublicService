@@ -1,0 +1,188 @@
+/* ============================================================
+   Cổng Dịch vụ công TP. Quảng Ngãi — Design Tokens
+   Phong cách: GovTech hiện đại, thân thiện, nhiều khoảng trắng
+   ============================================================ */
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
+
+:root {
+  /* ---- Màu chủ đạo (đỏ quốc kỳ, tinh chỉnh hiện đại) ---- */
+  --primary: #B91C1C;
+  --primary-hover: #9B1717;
+  --primary-active: #821313;
+  --primary-soft: #FEF2F2;
+  --primary-soft-2: #FDE4E4;
+  --primary-border: #F5C6C6;
+  --on-primary: #FFFFFF;
+
+  /* ---- Màu nhấn phụ ---- */
+  --gold: #B45309;
+  --gold-soft: #FEF8EC;
+
+  /* ---- Trung tính ---- */
+  --ink: #1C1917;
+  --ink-2: #44403C;
+  --ink-3: #78716C;
+  --ink-4: #A8A29E;
+  --line: #E7E5E4;
+  --line-soft: #F0EEEC;
+  --bg: #FFFFFF;
+  --bg-soft: #FAFAF9;
+  --bg-sunken: #F5F5F4;
+
+  /* ---- Ngữ nghĩa trạng thái ---- */
+  --info: #1D4ED8;       --info-soft: #EFF4FE;     --info-border: #C7D8FA;
+  --success: #15803D;    --success-soft: #F0FDF4;  --success-border: #BBE7C8;
+  --warning: #B45309;    --warning-soft: #FFFBEB;  --warning-border: #F3DFA8;
+  --danger: #B91C1C;     --danger-soft: #FEF2F2;   --danger-border: #F5C6C6;
+  --neutral-soft: #F5F5F4; --neutral-border: #E7E5E4;
+
+  /* ---- Chữ ---- */
+  --font: 'Be Vietnam Pro', system-ui, -apple-system, sans-serif;
+  --fs-12: 0.75rem;
+  --fs-13: 0.8125rem;
+  --fs-14: 0.875rem;
+  --fs-15: 0.9375rem;
+  --fs-16: 1rem;
+  --fs-18: 1.125rem;
+  --fs-20: 1.25rem;
+  --fs-24: 1.5rem;
+  --fs-30: 1.875rem;
+  --fs-38: 2.375rem;
+  --fs-48: 3rem;
+
+  /* ---- Bo góc ---- */
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 24px;
+  --r-full: 999px;
+
+  /* ---- Bóng ---- */
+  --shadow-sm: 0 1px 2px rgba(28, 25, 23, 0.05);
+  --shadow-md: 0 2px 8px rgba(28, 25, 23, 0.07), 0 1px 2px rgba(28, 25, 23, 0.05);
+  --shadow-lg: 0 8px 28px rgba(28, 25, 23, 0.11), 0 2px 8px rgba(28, 25, 23, 0.06);
+  --shadow-pop: 0 16px 48px rgba(28, 25, 23, 0.16);
+
+  /* ---- Bố cục ---- */
+  --container: 1200px;
+  --header-h: 68px;
+}
+
+/* ============ Reset & nền tảng ============ */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: var(--font);
+  font-size: var(--fs-15);
+  line-height: 1.6;
+  color: var(--ink);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+h1, h2, h3, h4 { margin: 0; line-height: 1.25; text-wrap: pretty; font-weight: 700; }
+p { margin: 0; text-wrap: pretty; }
+a { color: var(--primary); text-decoration: none; }
+a:hover { text-decoration: underline; }
+button { font-family: var(--font); cursor: pointer; }
+input, select, textarea { font-family: var(--font); }
+img { max-width: 100%; display: block; }
+
+::selection { background: var(--primary-soft-2); }
+
+/* ============ Tiện ích chung ============ */
+.container { max-width: var(--container); margin: 0 auto; padding: 0 24px; }
+@media (max-width: 640px) { .container { padding: 0 16px; } }
+
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+}
+
+/* Focus ring nhất quán, đạt chuẩn truy cập */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ============ Form controls ============ */
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field-label { font-size: var(--fs-14); font-weight: 600; color: var(--ink-2); }
+.field-label .req { color: var(--primary); }
+.field-hint { font-size: var(--fs-13); color: var(--ink-3); }
+.input, .select, .textarea {
+  width: 100%;
+  padding: 11px 14px;
+  font-size: var(--fs-15);
+  color: var(--ink);
+  background: var(--bg);
+  border: 1.5px solid var(--line);
+  border-radius: var(--r-md);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.input:hover, .select:hover, .textarea:hover { border-color: var(--ink-4); }
+.input:focus, .select:focus, .textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-soft-2);
+}
+.textarea { resize: vertical; min-height: 110px; }
+.select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%2378716C' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 38px; }
+
+/* ============ Nút ============ */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 11px 20px;
+  font-size: var(--fs-15); font-weight: 600;
+  border-radius: var(--r-md);
+  border: 1.5px solid transparent;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.06s;
+  white-space: nowrap;
+}
+.btn:active { transform: translateY(1px); }
+.btn:hover { text-decoration: none; }
+.btn-primary { background: var(--primary); color: var(--on-primary); }
+.btn-primary:hover { background: var(--primary-hover); }
+.btn-secondary { background: var(--bg); color: var(--ink); border-color: var(--line); }
+.btn-secondary:hover { border-color: var(--ink-4); background: var(--bg-soft); }
+.btn-soft { background: var(--primary-soft); color: var(--primary); }
+.btn-soft:hover { background: var(--primary-soft-2); }
+.btn-ghost { background: transparent; color: var(--ink-2); }
+.btn-ghost:hover { background: var(--bg-sunken); }
+.btn-lg { padding: 14px 26px; font-size: var(--fs-16); border-radius: var(--r-lg); }
+.btn-sm { padding: 7px 14px; font-size: var(--fs-14); border-radius: var(--r-sm); }
+.btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+
+/* ============ Thẻ ============ */
+.card {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+}
+.card-hover { transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s; }
+.card-hover:hover { border-color: var(--ink-4); box-shadow: var(--shadow-md); }
+
+/* ============ Badge trạng thái ============ */
+.badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 10px;
+  font-size: var(--fs-13); font-weight: 600;
+  border-radius: var(--r-full);
+  border: 1px solid;
+  white-space: nowrap;
+}
+.badge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
+
+/* ============ Leaflet chỉnh theo hệ thống ============ */
+.leaflet-container { font-family: var(--font); font-size: var(--fs-13); border-radius: inherit; }
+.leaflet-popup-content-wrapper { border-radius: var(--r-md); box-shadow: var(--shadow-lg); }
+.leaflet-popup-content { margin: 12px 14px; font-family: var(--font); }
+
+/* ============ Hoạt ảnh nhẹ ============ */
+@media (prefers-reduced-motion: no-preference) {
+  /* Chỉ animate transform — không animate opacity từ 0 để nội dung
+     luôn hiển thị kể cả khi timeline animation bị tạm dừng (capture/export). */
+  .fade-up { animation: fadeUp 0.3s ease; }
+  @keyframes fadeUp { from { transform: translateY(6px); } to { transform: none; } }
+}

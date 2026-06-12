@@ -1,0 +1,80 @@
+/* ============================================================
+   Responsive — tinh chỉnh riêng cho khổ điện thoại
+   Nạp SAU tokens.css trên các trang desktop (Cổng công dân,
+   Cổng cán bộ, Trang quản trị). Các layout chính đã gập về
+   1 cột ở 880–980px; file này lo phần ≤640/≤480px.
+   ============================================================ */
+
+/* ---- Thu nhỏ đầu thang chữ trên điện thoại ----
+   (chỉ ảnh hưởng các trang desktop nạp file này, không đụng Mobile App) */
+@media (max-width: 600px) {
+  :root {
+    --fs-48: 2.125rem;   /* hero */
+    --fs-38: 1.875rem;
+    --fs-30: 1.6rem;     /* tiêu đề trang */
+    --fs-24: 1.35rem;    /* tiêu đề mục */
+    --header-h: 60px;
+  }
+}
+@media (max-width: 400px) {
+  :root {
+    --fs-48: 1.875rem;
+    --fs-30: 1.45rem;
+    --fs-24: 1.25rem;
+  }
+}
+
+/* ---- Container hẹp hơn chút ở màn rất nhỏ ---- */
+@media (max-width: 380px) {
+  .container { padding: 0 14px; }
+}
+
+/* ---- Bộ lọc dạng select: full-width, dễ chạm trên điện thoại ----
+   (chỉ áp cho thanh lọc nằm trong flex-row; select trong form/grid
+    vốn đã full-width nên không đổi) */
+@media (max-width: 560px) {
+  .select, .input { min-height: 44px; }
+  .op-filter-bar > *,
+  .sp-filter-bar > * {
+    flex: 1 1 100% !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    margin-left: 0 !important;
+  }
+  .op-filter-bar .select,
+  .sp-filter-bar .select { width: 100% !important; }
+}
+
+/* ---- Bảng quản lý: cuộn ngang mượt + gợi ý bóng mép ---- */
+.op-table-scroll {
+  position: relative;
+  -webkit-overflow-scrolling: touch;
+}
+@media (max-width: 760px) {
+  .op-table { min-width: 640px; } /* giữ cột không bị bóp vỡ chữ; cuộn ngang */
+}
+
+/* ---- PageHead: giảm khoảng đệm dọc, cho nút xuống hàng gọn ---- */
+@media (max-width: 560px) {
+  .pagehead-actions { width: 100%; }
+  .pagehead-actions .btn { flex: 1 1 auto; justify-content: center; }
+}
+
+/* ---- Hàng nhãn–giá trị (thanh toán) rút gọn cột nhãn ở màn nhỏ ---- */
+@media (max-width: 440px) {
+  .pay-grid > div:last-child > div[style*="grid"] {
+    grid-template-columns: 104px 1fr !important;
+    gap: 10px !important;
+  }
+}
+
+/* ---- Quick actions trang chủ: 2 cột gọn trên điện thoại ---- */
+@media (max-width: 420px) {
+  .qa-grid { grid-template-columns: repeat(2, 1fr) !important; }
+}
+
+/* ---- Phân trang: gọn lại, không tràn ---- */
+@media (max-width: 420px) {
+  .pgnav { gap: 4px !important; }
+  .pgnav button { min-width: 30px !important; height: 30px !important; }
+}
