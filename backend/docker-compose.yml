@@ -1,0 +1,65 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: dvc-postgres
+    environment:
+      POSTGRES_USER: dvc
+      POSTGRES_PASSWORD: dvc_dev_pw
+      POSTGRES_DB: dvc
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dvc -d dvc"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  mailpit:
+    image: axllent/mailpit
+    container_name: dvc-mailpit
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: src/DVC.Api/Dockerfile
+    container_name: dvc-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Default: "Host=postgres;Port=5432;Database=dvc;Username=dvc;Password=dvc_dev_pw"
+      DainnUser__Database__Provider: PostgreSQL
+      DainnUser__Database__ConnectionString: "Host=postgres;Port=5432;Database=dvc;Username=dvc;Password=dvc_dev_pw"
+      DainnUser__Jwt__Secret: "dvc-local-dev-only-jwt-secret-please-change-32bytes+"
+      DainnUser__Jwt__Issuer: dvc-api
+      DainnUser__Jwt__Audience: dvc-clients
+      DainnUser__RequireEmailVerification: "false"
+      DainnUser__EnableTwoFactor: "false"
+      DainnUser__EnableRateLimiting: "false"
+      DainnUser__Email__Provider: Smtp
+      DainnUser__Email__FromEmail: noreply@dvc.local
+      DainnUser__Email__SmtpHost: mailpit
+      DainnUser__Email__SmtpPort: "1025"
+      DainnUser__Email__EnableSsl: "false"
+      DainnUser__Storage__Provider: Local
+      Geo__ApiBaseUrl: "https://provinces.open-api.vn/api/v2/"
+      Geo__AutoSeed: "true"
+    ports:
+      - "5134:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+    restart: unless-stopped
+    profiles:
+      - full
+
+volumes:
+  postgres_data:
