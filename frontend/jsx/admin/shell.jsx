@@ -40,11 +40,11 @@ function AdminShell({ lang, setLang, route, navigate, children }) {
           )}
         </nav>
         <div style={{ padding: '14px 12px', borderTop: '1px solid rgba(255,255,255,0.1)', display: 'flex', flexDirection: 'column', gap: 3 }}>
-          <a href="Cong Dich Vu Cong.html"
+          <a href="Home.html"
           style={{ display: 'flex', alignItems: 'center', gap: 12, borderRadius: 'var(--r-md)', padding: '9px 14px', fontWeight: 600, fontSize: 'var(--fs-13)', color: '#A8A29E', textDecoration: 'none' }}>
             <Icon name="external" size={16} />{t('op_citizen_portal')}
           </a>
-          <a href="Cong Can Bo.html"
+          <a href="Manage.html"
           style={{ display: 'flex', alignItems: 'center', gap: 12, borderRadius: 'var(--r-md)', padding: '9px 14px', fontWeight: 600, fontSize: 'var(--fs-13)', color: '#A8A29E', textDecoration: 'none' }}>
             <Icon name="external" size={16} />{t('op_portal')}
           </a>
