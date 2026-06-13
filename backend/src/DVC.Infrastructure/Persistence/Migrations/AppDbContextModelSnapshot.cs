@@ -22,6 +22,69 @@ namespace DVC.Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("DVC.Domain.Announcements.Announcement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("BodyEn")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("body_en");
+
+                    b.Property<string>("BodyVi")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("body_vi");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date")
+                        .HasColumnName("date");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<string>("Tag")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("tag");
+
+                    b.Property<string>("TitleEn")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("title_en");
+
+                    b.Property<string>("TitleVi")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("title_vi");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_announcements");
+
+                    b.HasIndex("Tag")
+                        .HasDatabaseName("ix_announcements_tag");
+
+                    b.HasIndex("IsActive", "Date")
+                        .HasDatabaseName("ix_announcements_is_active_date");
+
+                    b.ToTable("announcements", (string)null);
+                });
+
             modelBuilder.Entity("DVC.Domain.Audit.AuditLog", b =>
                 {
                     b.Property<Guid>("Id")
@@ -110,6 +173,10 @@ namespace DVC.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("description");
 
+                    b.Property<string>("DescriptionEn")
+                        .HasColumnType("text")
+                        .HasColumnName("description_en");
+
                     b.Property<decimal>("Fee")
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("fee");
@@ -118,11 +185,20 @@ namespace DVC.Infrastructure.Persistence.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("is_active");
 
+                    b.Property<bool>("IsFeatured")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_featured");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)")
                         .HasColumnName("name");
+
+                    b.Property<string>("NameEn")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("name_en");
 
                     b.Property<int?>("ProcessingTimeDays")
                         .HasColumnType("integer")
@@ -176,6 +252,10 @@ namespace DVC.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("description");
 
+                    b.Property<string>("DescriptionEn")
+                        .HasColumnType("text")
+                        .HasColumnName("description_en");
+
                     b.Property<int>("DisplayOrder")
                         .HasColumnType("integer")
                         .HasColumnName("display_order");
@@ -189,6 +269,11 @@ namespace DVC.Infrastructure.Persistence.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)")
                         .HasColumnName("name");
+
+                    b.Property<string>("NameEn")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("name_en");
 
                     b.Property<Guid?>("ParentId")
                         .HasColumnType("uuid")
@@ -271,6 +356,73 @@ namespace DVC.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_notifications_user_id_is_read");
 
                     b.ToTable("notifications", (string)null);
+                });
+
+            modelBuilder.Entity("DVC.Domain.Engagement.NotificationCampaign", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Audience")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("audience");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Department")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("department");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("message");
+
+                    b.Property<int>("RecipientCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("recipient_count");
+
+                    b.Property<DateTime>("SentAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("sent_at");
+
+                    b.Property<Guid>("SentByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sent_by_user_id");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("title");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("type");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<int?>("WardCode")
+                        .HasColumnType("integer")
+                        .HasColumnName("ward_code");
+
+                    b.HasKey("Id")
+                        .HasName("pk_notification_campaigns");
+
+                    b.HasIndex("SentAt")
+                        .HasDatabaseName("ix_notification_campaigns_sent_at");
+
+                    b.ToTable("notification_campaigns", (string)null);
                 });
 
             modelBuilder.Entity("DVC.Domain.Engagement.ServicePointRating", b =>
@@ -728,6 +880,11 @@ namespace DVC.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<string>("Area")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("area");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -780,6 +937,50 @@ namespace DVC.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_officer_profiles_user_id");
 
                     b.ToTable("officer_profiles", (string)null);
+                });
+
+            modelBuilder.Entity("DVC.Domain.Identity.UserProfile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Address")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("address");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("FullName")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("full_name");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("phone");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_user_profiles");
+
+                    b.HasIndex("UserId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_user_profiles_user_id");
+
+                    b.ToTable("user_profiles", (string)null);
                 });
 
             modelBuilder.Entity("DVC.Domain.Requests.ServiceRequest", b =>
@@ -861,6 +1062,47 @@ namespace DVC.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_service_requests_status");
 
                     b.ToTable("service_requests", (string)null);
+                });
+
+            modelBuilder.Entity("DVC.Domain.Requests.ServiceRequestComment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AuthorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("author_id");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("content");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<bool>("IsInternal")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_internal");
+
+                    b.Property<Guid>("ServiceRequestId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("service_request_id");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_service_request_comments");
+
+                    b.HasIndex("ServiceRequestId")
+                        .HasDatabaseName("ix_service_request_comments_service_request_id");
+
+                    b.ToTable("service_request_comments", (string)null);
                 });
 
             modelBuilder.Entity("DVC.Domain.Requests.ServiceRequestDocument", b =>
@@ -1004,6 +1246,11 @@ namespace DVC.Infrastructure.Persistence.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)")
                         .HasColumnName("name");
+
+                    b.Property<string>("NameEn")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("name_en");
 
                     b.Property<string>("Phone")
                         .HasMaxLength(30)
@@ -1206,6 +1453,18 @@ namespace DVC.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_service_requests_public_services_public_service_id");
                 });
 
+            modelBuilder.Entity("DVC.Domain.Requests.ServiceRequestComment", b =>
+                {
+                    b.HasOne("DVC.Domain.Requests.ServiceRequest", "ServiceRequest")
+                        .WithMany("Comments")
+                        .HasForeignKey("ServiceRequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_service_request_comments_service_requests_service_request_id");
+
+                    b.Navigation("ServiceRequest");
+                });
+
             modelBuilder.Entity("DVC.Domain.Requests.ServiceRequestDocument", b =>
                 {
                     b.HasOne("DVC.Domain.Requests.ServiceRequest", "ServiceRequest")
@@ -1284,6 +1543,8 @@ namespace DVC.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("DVC.Domain.Requests.ServiceRequest", b =>
                 {
+                    b.Navigation("Comments");
+
                     b.Navigation("Documents");
 
                     b.Navigation("StatusHistory");

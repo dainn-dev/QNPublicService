@@ -7,6 +7,7 @@ public class ServicePoint : BaseEntity, IAuditableEntity
 {
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
+    public string? NameEn { get; set; }
     public ServicePointType Type { get; set; }
     public string Address { get; set; } = string.Empty;
 

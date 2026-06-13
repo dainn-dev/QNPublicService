@@ -1,6 +1,18 @@
 // ============================================================
 // Trang quản trị — Quản lý điểm dịch vụ (chuyên sâu, có bản đồ)
+// Dữ liệu lấy từ API thật:
+//   - Điểm DV:  api/service-points (đọc) · api/admin/service-points (POST/PUT/DELETE)
+//   - Phường/xã: api/provinces + api/provinces/{code}/wards (tra ward theo mã)
+//   - Dịch vụ:   api/public-services (gán serviceIds là GUID thật)
+// Ánh xạ điểm lệch: open ↔ isActive · hours{weekday,saturday} ↔ workingHours
+//   · ward (tên) → wardCode (+ provinceCode suy ra từ ward đã chọn).
 // ============================================================
+
+const SP_TYPES = ['Ubnd', 'Police', 'Hospital', 'School', 'AdminCenter'];
+const SP_TYPE_KEY = {
+  Ubnd: 'sp_type_ubnd', Police: 'sp_type_police', Hospital: 'sp_type_hospital',
+  School: 'sp_type_school', AdminCenter: 'sp_type_admincenter',
+};
 
 // Bản đồ chọn vị trí trong modal
 function SpLocationPicker({ lat, lng, onPick }) {
@@ -27,19 +39,53 @@ function SpLocationPicker({ lat, lng, onPick }) {
 }
 
 // Modal thêm/sửa điểm dịch vụ
-function SpEditModal({ lang, point, onClose, onSave }) {
+function SpEditModal({ lang, point, wards, services, onClose, onSave }) {
   const t = useT(lang);
-  const blank = { id: 'sp' + Date.now(), vi: '', en: '', address: '', ward: window.DATA.wards[0], phone: '', email: '', website: '', hours: { weekday: '07:00 – 11:30, 13:30 – 17:00', saturday: 'Nghỉ' }, rating: 0, ratingCount: 0, open: true, serviceIds: [], distance: 0, lat: 15.1205, lng: 108.7945 };
+  const firstWard = wards[0];
+  const blank = {
+    code: '', vi: '', en: '', address: '', type: 'Ubnd',
+    wardCode: firstWard ? firstWard.code : '', provinceCode: firstWard ? firstWard.provinceCode : null,
+    phone: '', email: '', website: '',
+    hours: { weekday: '07:00 – 11:30, 13:30 – 17:00', saturday: 'Nghỉ' },
+    open: true, serviceIds: [], lat: 15.1205, lng: 108.7945,
+  };
   const [form, setForm] = React.useState(point || blank);
+  const [busy, setBusy] = React.useState(false);
+  const mounted = React.useRef(true);
+  React.useEffect(() => () => { mounted.current = false; }, []);
+
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const setHours = (k, v) => setForm((f) => ({ ...f, hours: { ...f.hours, [k]: v } }));
   const toggleSvc = (id) => setForm((f) => ({ ...f, serviceIds: f.serviceIds.includes(id) ? f.serviceIds.filter((x) => x !== id) : [...f.serviceIds, id] }));
+  // Chọn phường/xã → đồng bộ wardCode + provinceCode (backend cần cả hai).
+  const setWard = (code) => {
+    const w = wards.find((x) => String(x.code) === String(code));
+    setForm((f) => ({ ...f, wardCode: w ? w.code : code, provinceCode: w ? w.provinceCode : f.provinceCode }));
+  };
+
+  const submit = () => {
+    if (busy) return;
+    const r = onSave(form);
+    if (r && typeof r.then === 'function') { setBusy(true); r.finally(() => { if (mounted.current) setBusy(false); }); }
+  };
 
   return (
     <Modal title={point ? t('sp_edit_point') : t('sp_add_point')} onClose={onClose} width={780}>
       <div className="sp-edit-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, alignItems: 'start' }}>
         {/* Cột trái: thông tin */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="field">
+              <label className="field-label" htmlFor="sp-code">{t('c_code')} <span className="req">*</span></label>
+              <input id="sp-code" className="input" value={form.code} disabled={!!point} onChange={(e) => set('code', e.target.value)} placeholder="VD: TTHCC-QN"/>
+            </div>
+            <div className="field">
+              <label className="field-label" htmlFor="sp-type">{t('sp_type')}</label>
+              <select id="sp-type" className="select" value={form.type} onChange={(e) => set('type', e.target.value)}>
+                {SP_TYPES.map((ty) => <option key={ty} value={ty}>{t(SP_TYPE_KEY[ty])}</option>)}
+              </select>
+            </div>
+          </div>
           <div className="field">
             <label className="field-label" htmlFor="sp-vi">{t('c_name_vi')} <span className="req">*</span></label>
             <input id="sp-vi" className="input" value={form.vi} onChange={(e) => set('vi', e.target.value)} placeholder="VD: Bộ phận Một cửa UBND phường…"/>
@@ -55,8 +101,9 @@ function SpEditModal({ lang, point, onClose, onSave }) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div className="field">
               <label className="field-label" htmlFor="sp-ward">{t('sp_filter_ward')}</label>
-              <select id="sp-ward" className="select" value={form.ward} onChange={(e) => set('ward', e.target.value)}>
-                {window.DATA.wards.map((w) => <option key={w} value={w}>{w}</option>)}
+              <select id="sp-ward" className="select" value={form.wardCode ?? ''} onChange={(e) => setWard(e.target.value)}>
+                {!wards.length && <option value="">—</option>}
+                {wards.map((w) => <option key={w.code} value={w.code}>{w.name}</option>)}
               </select>
             </div>
             <div className="field">
@@ -103,7 +150,8 @@ function SpEditModal({ lang, point, onClose, onSave }) {
           <div className="field">
             <span className="field-label">{t('sp_services_offered')} <span style={{ fontWeight: 400, color: 'var(--ink-4)' }}>· {form.serviceIds.length}</span></span>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 168, overflowY: 'auto', border: '1px solid var(--line)', borderRadius: 'var(--r-md)', padding: 8 }}>
-              {window.DATA.services.map((s) => {
+              {!services.length && <span style={{ fontSize: 'var(--fs-13)', color: 'var(--ink-4)', padding: '6px 9px' }}>{t('empty')}</span>}
+              {services.map((s) => {
                 const on = form.serviceIds.includes(s.id);
                 return (
                   <label key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 9px', borderRadius: 'var(--r-sm)', cursor: 'pointer', background: on ? 'var(--primary-soft)' : 'transparent' }}>
@@ -118,9 +166,9 @@ function SpEditModal({ lang, point, onClose, onSave }) {
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 18 }}>
-        <button className="btn btn-secondary" onClick={onClose}>{t('cancel')}</button>
-        <button className="btn btn-primary" disabled={!form.vi.trim() || !form.address.trim()} onClick={() => onSave(form)}>
-          <Icon name="check" size={16}/>{t('save')}
+        <button className="btn btn-secondary" onClick={onClose} disabled={busy}>{t('cancel')}</button>
+        <button className="btn btn-primary" disabled={busy || !form.code.trim() || !form.vi.trim() || !form.address.trim()} onClick={submit}>
+          <Icon name="check" size={16}/>{busy ? t('loading') : t('save')}
         </button>
       </div>
       <style>{`@media (max-width: 640px) { .sp-edit-grid { grid-template-columns: 1fr !important; } }`}</style>
@@ -128,27 +176,38 @@ function SpEditModal({ lang, point, onClose, onSave }) {
   );
 }
 
-function AdminServicePoints({ lang, points, setPoints, showToast }) {
+function AdminServicePoints({ lang, showToast }) {
   const t = useT(lang);
+  const pointsQ = useApiData((s) => API.admin.getPoints({ signal: s }), []);
+  const wardsQ = useApiData((s) => API.getAllWards({ signal: s }), []);
+  const svcQ = useApiData((s) => API.getServices({}, { signal: s }), []);
   const [q, setQ] = React.useState('');
   const [fWard, setFWard] = React.useState('all');
   const [fOpen, setFOpen] = React.useState('all');
   const [modal, setModal] = React.useState(undefined); // undefined=đóng, null=thêm, object=sửa
   const [deleting, setDeleting] = React.useState(null);
 
+  const wards = wardsQ.data || [];
+  const services = svcQ.data || [];
+  const wardName = (code) => { const w = wards.find((x) => x.code === code); return w ? w.name : (code != null ? ('#' + code) : '—'); };
+  const points = (pointsQ.data || []).map((p) => Object.assign({}, p, { ward: wardName(p.wardCode) }));
+
   const filtered = points.filter((p) =>
-    (fWard === 'all' || p.ward === fWard) &&
+    (fWard === 'all' || String(p.wardCode) === String(fWard)) &&
     (fOpen === 'all' || (fOpen === 'open' ? p.open : !p.open)) &&
     (!q || (p.vi + ' ' + p.en + ' ' + p.address).toLowerCase().includes(q.toLowerCase()))
   );
   const pg = usePagination(filtered, 8);
 
   const save = (form) => {
-    const exists = points.some((p) => p.id === form.id);
-    setPoints(exists ? points.map((p) => p.id === form.id ? form : p) : [form, ...points]);
-    setModal(undefined);
-    showToast(t('dt_saved'));
+    const call = (modal && modal.id) ? API.admin.updatePoint(modal.id, form) : API.admin.createPoint(form);
+    return call
+      .then(() => { pointsQ.reload(); setModal(undefined); showToast(t('dt_saved')); })
+      .catch(() => { showToast(t('dt_save_error')); });
   };
+  const del = () => API.admin.deletePoint(deleting.id)
+    .then(() => { pointsQ.reload(); setDeleting(null); showToast(t('dt_deleted')); })
+    .catch(() => { showToast(t('dt_save_error')); });
 
   const selStyle = { width: 'auto', flex: '0 1 auto', paddingTop: 9, paddingBottom: 9, fontSize: 'var(--fs-14)' };
 
@@ -164,7 +223,7 @@ function AdminServicePoints({ lang, points, setPoints, showToast }) {
         </div>
         <select className="select" style={selStyle} value={fWard} onChange={(e) => setFWard(e.target.value)} aria-label={t('sp_filter_ward')}>
           <option value="all">{t('sp_filter_ward')}: {t('all')}</option>
-          {window.DATA.wards.map((w) => <option key={w} value={w}>{w}</option>)}
+          {wards.map((w) => <option key={w.code} value={w.code}>{w.name}</option>)}
         </select>
         <select className="select" style={selStyle} value={fOpen} onChange={(e) => setFOpen(e.target.value)} aria-label={t('tbl_status')}>
           <option value="all">{t('tbl_status')}: {t('all')}</option>
@@ -173,59 +232,61 @@ function AdminServicePoints({ lang, points, setPoints, showToast }) {
         </select>
       </div>
 
-      <div className="card op-table-scroll" style={{ background: '#fff', overflowX: 'auto' }}>
-        <table className="op-table">
-          <thead>
-            <tr>
-              <th>{t('c_name_vi')}</th>
-              <th>{t('sp_address')}</th>
-              <th>{t('sp_filter_ward')}</th>
-              <th>{t('sp_phone')}</th>
-              <th>{t('sp_services')}</th>
-              <th>{t('sp_rating')}</th>
-              <th>{t('tbl_status')}</th>
-              <th style={{ width: 120 }}>{t('tbl_actions')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {pg.pageItems.map((p) => (
-              <tr key={p.id}>
-                <td style={{ maxWidth: 260 }}>
-                  <strong style={{ fontSize: 'var(--fs-14)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pick(p, lang)}</strong>
-                  <span style={{ fontSize: 'var(--fs-12)', color: 'var(--ink-4)', fontVariantNumeric: 'tabular-nums' }}>{p.lat}, {p.lng}</span>
-                </td>
-                <td style={{ fontSize: 'var(--fs-13)', color: 'var(--ink-3)', maxWidth: 200 }}><span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.address}</span></td>
-                <td style={{ fontSize: 'var(--fs-13)', whiteSpace: 'nowrap' }}>{p.ward}</td>
-                <td style={{ fontSize: 'var(--fs-13)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{p.phone || '—'}</td>
-                <td style={{ fontSize: 'var(--fs-13)', textAlign: 'center' }}><strong>{p.serviceIds.length}</strong></td>
-                <td style={{ whiteSpace: 'nowrap' }}>
-                  {p.ratingCount ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 'var(--fs-13)' }}><Stars rating={p.rating} size={12}/><strong>{p.rating}</strong></span> : <span style={{ color: 'var(--ink-4)', fontSize: 'var(--fs-13)' }}>—</span>}
-                </td>
-                <td><Badge tone={p.open ? 'success' : 'neutral'}>{t(p.open ? 'sp_open' : 'sp_closed')}</Badge></td>
-                <td>
-                  <span style={{ display: 'flex', gap: 6 }}>
-                    <button className="btn btn-secondary btn-sm" onClick={() => setModal(p)}>{t('u_edit')}</button>
-                    <button onClick={() => setDeleting(p)} aria-label={t('c_delete')}
-                      style={{ border: '1.5px solid var(--danger-border)', background: 'var(--danger-soft)', borderRadius: 'var(--r-sm)', width: 30, height: 30, display: 'grid', placeItems: 'center', color: 'var(--danger)' }}>
-                      <Icon name="x" size={14}/>
-                    </button>
-                  </span>
-                </td>
+      <CrudLoader loading={pointsQ.loading} error={pointsQ.error} reload={pointsQ.reload} lang={lang}>
+        <div className="card op-table-scroll" style={{ background: '#fff', overflowX: 'auto' }}>
+          <table className="op-table">
+            <thead>
+              <tr>
+                <th>{t('c_name_vi')}</th>
+                <th>{t('sp_address')}</th>
+                <th>{t('sp_filter_ward')}</th>
+                <th>{t('sp_phone')}</th>
+                <th>{t('sp_services')}</th>
+                <th>{t('sp_rating')}</th>
+                <th>{t('tbl_status')}</th>
+                <th style={{ width: 120 }}>{t('tbl_actions')}</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-        {filtered.length === 0 && <EmptyState icon="mappin" title={t('empty')}/>}
-        <Pagination {...pg} lang={lang}/>
-      </div>
+            </thead>
+            <tbody>
+              {pg.pageItems.map((p) => (
+                <tr key={p.id}>
+                  <td style={{ maxWidth: 260 }}>
+                    <strong style={{ fontSize: 'var(--fs-14)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pick(p, lang)}</strong>
+                    <span style={{ fontSize: 'var(--fs-12)', color: 'var(--ink-4)', fontVariantNumeric: 'tabular-nums' }}>{p.lat != null ? (p.lat + ', ' + p.lng) : p.code}</span>
+                  </td>
+                  <td style={{ fontSize: 'var(--fs-13)', color: 'var(--ink-3)', maxWidth: 200 }}><span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.address}</span></td>
+                  <td style={{ fontSize: 'var(--fs-13)', whiteSpace: 'nowrap' }}>{p.ward}</td>
+                  <td style={{ fontSize: 'var(--fs-13)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{p.phone || '—'}</td>
+                  <td style={{ fontSize: 'var(--fs-13)', textAlign: 'center' }}><strong>{p.serviceIds.length}</strong></td>
+                  <td style={{ whiteSpace: 'nowrap' }}>
+                    {p.ratingCount ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 'var(--fs-13)' }}><Stars rating={p.rating} size={12}/><strong>{p.rating}</strong></span> : <span style={{ color: 'var(--ink-4)', fontSize: 'var(--fs-13)' }}>—</span>}
+                  </td>
+                  <td><Badge tone={p.open ? 'success' : 'neutral'}>{t(p.open ? 'sp_open' : 'sp_closed')}</Badge></td>
+                  <td>
+                    <span style={{ display: 'flex', gap: 6 }}>
+                      <button className="btn btn-secondary btn-sm" onClick={() => setModal(p)}>{t('u_edit')}</button>
+                      <button onClick={() => setDeleting(p)} aria-label={t('c_delete')}
+                        style={{ border: '1.5px solid var(--danger-border)', background: 'var(--danger-soft)', borderRadius: 'var(--r-sm)', width: 30, height: 30, display: 'grid', placeItems: 'center', color: 'var(--danger)' }}>
+                        <Icon name="x" size={14}/>
+                      </button>
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {filtered.length === 0 && <EmptyState icon="mappin" title={t('empty')}/>}
+          <Pagination {...pg} lang={lang}/>
+        </div>
+      </CrudLoader>
 
       {modal !== undefined && (
-        <SpEditModal lang={lang} point={modal} onClose={() => setModal(undefined)} onSave={save}/>
+        <SpEditModal lang={lang} point={modal} wards={wards} services={services} onClose={() => setModal(undefined)} onSave={save}/>
       )}
       {deleting && (
         <DeleteConfirm lang={lang} label={deleting.vi}
           onClose={() => setDeleting(null)}
-          onConfirm={() => { setPoints(points.filter((p) => p.id !== deleting.id)); setDeleting(null); showToast(t('dt_saved')); }}/>
+          onConfirm={del}/>
       )}
     </div>
   );

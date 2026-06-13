@@ -16,7 +16,7 @@ public sealed class FeedbackController : ControllerBase
     [HttpGet("categories")]
     [AllowAnonymous]
     public async Task<IActionResult> Categories(CancellationToken ct)
-        => Ok(await _feedback.GetCategoriesAsync(ct));
+        => Ok(await _feedback.GetCategoriesAsync(includeInactive: false, ct));
 
     [HttpPost]
     public async Task<IActionResult> Submit([FromBody] SubmitFeedbackDto dto, CancellationToken ct)

@@ -4,7 +4,8 @@ namespace DVC.Application.Abstractions.Identity;
 
 public sealed record AdminUserDto(
     Guid Id, string? Email, string? Username, string Status, bool IsLocked,
-    DateTime? LastLoginAt, IReadOnlyList<string> Roles);
+    DateTime? LastLoginAt, IReadOnlyList<string> Roles,
+    string? FullName = null, string? Phone = null, string? Address = null);
 
 /// <summary>
 /// Admin-facing user/role operations. Wraps DainnUser's IUserManagementService/IRoleService

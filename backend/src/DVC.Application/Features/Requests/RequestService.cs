@@ -13,20 +13,22 @@ public sealed class RequestService
     private readonly IAppDbContext _db;
     private readonly ICurrentUser _user;
     private readonly NotificationService _notifications;
+    private readonly PersonNameResolver _names;
 
-    public RequestService(IAppDbContext db, ICurrentUser user, NotificationService notifications)
+    public RequestService(IAppDbContext db, ICurrentUser user, NotificationService notifications, PersonNameResolver names)
     {
         _db = db;
         _user = user;
         _notifications = notifications;
+        _names = names;
     }
 
     // ----- Citizen -----
     public async Task<ServiceRequestDto> SubmitAsync(SubmitRequestDto dto, CancellationToken ct = default)
     {
         var citizenId = _user.RequireUserId();
-        if (!await _db.PublicServices.AnyAsync(s => s.Id == dto.PublicServiceId, ct))
-            throw NotFoundException.For("Public service", dto.PublicServiceId);
+        var service = await _db.PublicServices.FirstOrDefaultAsync(s => s.Id == dto.PublicServiceId, ct)
+            ?? throw NotFoundException.For("Public service", dto.PublicServiceId);
         if (dto.ServicePointId is { } sp && !await _db.ServicePoints.AnyAsync(p => p.Id == sp, ct))
             throw NotFoundException.For("Service point", sp);
 
@@ -39,7 +41,9 @@ public sealed class RequestService
             ServicePointId = dto.ServicePointId,
             Note = dto.Note,
             Status = ServiceRequestStatus.Submitted,
-            SubmittedAt = now
+            SubmittedAt = now,
+            // SLA: due ProcessingTimeDays working days after submission; no deadline when unset.
+            DueAt = service.ProcessingTimeDays is { } days ? Sla.AddWorkingDays(now, days) : null
         };
         request.StatusHistory.Add(new ServiceRequestStatusHistory
         {
@@ -50,7 +54,7 @@ public sealed class RequestService
         });
         _db.ServiceRequests.Add(request);
         await _db.SaveChangesAsync(ct);
-        return await GetByIdAsync(request.Id, ct);
+        return await GetByIdAsync(request.Id, includeInternal: false, ct);
     }
 
     public async Task<IReadOnlyList<ServiceRequestDto>> GetMineAsync(CancellationToken ct = default)
@@ -58,15 +62,21 @@ public sealed class RequestService
         var citizenId = _user.RequireUserId();
         var rows = await LoadDetailQuery().Where(r => r.CitizenId == citizenId)
             .OrderByDescending(r => r.SubmittedAt).ToListAsync(ct);
-        return rows.Select(ToDto).ToList();
+        var names = await ResolveNamesAsync(rows, ct);
+        return rows.Select(r => ToDto(r, includeInternal: false, names)).ToList();
     }
 
     public async Task<ServiceRequestDto> GetAsync(Guid id, CancellationToken ct = default)
     {
         var request = await LoadDetailQuery().FirstOrDefaultAsync(r => r.Id == id, ct)
             ?? throw NotFoundException.For("Service request", id);
-        EnsureOwnerOrOfficer(request.CitizenId);
-        return ToDto(request);
+
+        var isOfficer = _user.IsInRole(Roles.Officer) || _user.IsInRole(Roles.Admin) || _user.IsInRole(Roles.Super);
+        if (!isOfficer && request.CitizenId != _user.UserId)
+            throw new ForbiddenException("You can only access your own request.");
+
+        var names = await ResolveNamesAsync(new[] { request }, ct);
+        return ToDto(request, includeInternal: isOfficer, names);
     }
 
     public async Task<RequestDocumentDto> AddDocumentAsync(Guid id, AddRequestDocumentDto dto, CancellationToken ct = default)
@@ -104,19 +114,59 @@ public sealed class RequestService
 
         TransitionTo(request, ServiceRequestStatus.Cancelled, "Công dân hủy hồ sơ");
         await _db.SaveChangesAsync(ct);
-        return await GetByIdAsync(id, ct);
+        return await GetByIdAsync(id, includeInternal: false, ct);
+    }
+
+    public async Task<RequestCommentDto> AddCommentAsync(Guid id, AddRequestCommentDto dto, CancellationToken ct = default)
+    {
+        var request = await _db.ServiceRequests.FirstOrDefaultAsync(r => r.Id == id, ct)
+            ?? throw NotFoundException.For("Service request", id);
+        var authorId = _user.RequireUserId();
+        var isOfficer = _user.IsInRole(Roles.Officer) || _user.IsInRole(Roles.Admin) || _user.IsInRole(Roles.Super);
+        if (!isOfficer && request.CitizenId != authorId)
+            throw new ForbiddenException("You can only comment on your own request.");
+        // Citizens cannot post internal notes.
+        var isInternal = dto.IsInternal && isOfficer;
+
+        var comment = new ServiceRequestComment { ServiceRequestId = id, AuthorId = authorId, Content = dto.Content, IsInternal = isInternal };
+        _db.ServiceRequestComments.Add(comment);
+
+        // Notify the other party of a visible comment.
+        if (!isInternal)
+        {
+            var target = isOfficer ? request.CitizenId : request.AssignedOfficerId;
+            if (target is { } t && t != authorId)
+                await _notifications.NotifyAsync(t, NotificationType.Request, "Hồ sơ có phản hồi mới",
+                    $"Hồ sơ {request.Code} có bình luận mới.", nameof(ServiceRequest), request.Id, ct: ct);
+        }
+
+        await _db.SaveChangesAsync(ct);
+        var names = await _names.LoadAsync(new[] { comment.AuthorId }, ct);
+        return new RequestCommentDto(comment.Id, comment.AuthorId, names.Name(comment.AuthorId), comment.Content, comment.IsInternal, comment.CreatedAt);
     }
 
     // ----- Officer -----
-    public async Task<IReadOnlyList<ServiceRequestDto>> ListForOfficerAsync(
-        ServiceRequestStatus? status, Guid? assignedOfficerId, CancellationToken ct = default)
+    public async Task<PagedResult<ServiceRequestDto>> ListForOfficerAsync(
+        ServiceRequestStatus? status, Guid? assignedOfficerId, Guid? publicServiceId, Guid? servicePointId,
+        int page = 1, int pageSize = 20, CancellationToken ct = default)
     {
-        var rows = await LoadDetailQuery()
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 200);
+
+        var query = LoadDetailQuery()
             .Where(r => (status == null || r.Status == status)
-                && (assignedOfficerId == null || r.AssignedOfficerId == assignedOfficerId))
+                && (assignedOfficerId == null || r.AssignedOfficerId == assignedOfficerId)
+                && (publicServiceId == null || r.PublicServiceId == publicServiceId)
+                && (servicePointId == null || r.ServicePointId == servicePointId));
+
+        var total = await query.CountAsync(ct);
+        var rows = await query
             .OrderByDescending(r => r.SubmittedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync(ct);
-        return rows.Select(ToDto).ToList();
+        var names = await ResolveNamesAsync(rows, ct);
+        return new PagedResult<ServiceRequestDto>(rows.Select(r => ToDto(r, includeInternal: true, names)).ToList(), page, pageSize, total);
     }
 
     public async Task<ServiceRequestDto> AssignAsync(Guid id, AssignRequestDto dto, CancellationToken ct = default)
@@ -130,7 +180,7 @@ public sealed class RequestService
         await _notifications.NotifyAsync(dto.OfficerId, NotificationType.Request, "Hồ sơ được phân công",
             $"Bạn được phân công xử lý hồ sơ {request.Code}.", nameof(ServiceRequest), request.Id, ct: ct);
         await _db.SaveChangesAsync(ct);
-        return await GetByIdAsync(id, ct);
+        return await GetByIdAsync(id, includeInternal: true, ct);
     }
 
     public async Task<ServiceRequestDto> ChangeStatusAsync(Guid id, ChangeRequestStatusDto dto, CancellationToken ct = default)
@@ -142,7 +192,7 @@ public sealed class RequestService
         await _notifications.NotifyAsync(request.CitizenId, NotificationType.Request, "Cập nhật hồ sơ",
             $"Hồ sơ {request.Code} chuyển sang trạng thái {dto.Status}.", nameof(ServiceRequest), request.Id, ct: ct);
         await _db.SaveChangesAsync(ct);
-        return await GetByIdAsync(id, ct);
+        return await GetByIdAsync(id, includeInternal: true, ct);
     }
 
     private void TransitionTo(ServiceRequest request, ServiceRequestStatus to, string? note)
@@ -173,17 +223,34 @@ public sealed class RequestService
 
     private IQueryable<ServiceRequest> LoadDetailQuery() => _db.ServiceRequests
         .Include(r => r.Documents)
+        .Include(r => r.Comments)
         .Include(r => r.StatusHistory);
 
-    private async Task<ServiceRequestDto> GetByIdAsync(Guid id, CancellationToken ct)
+    private async Task<ServiceRequestDto> GetByIdAsync(Guid id, bool includeInternal, CancellationToken ct)
     {
         var request = await LoadDetailQuery().FirstAsync(r => r.Id == id, ct);
-        return ToDto(request);
+        var names = await ResolveNamesAsync(new[] { request }, ct);
+        return ToDto(request, includeInternal, names);
     }
 
-    private static ServiceRequestDto ToDto(ServiceRequest r) => new(
-        r.Id, r.Code, r.PublicServiceId, r.CitizenId, r.ServicePointId, r.AssignedOfficerId,
+    // Citizen + every comment author + every status-change author across the given requests.
+    private Task<PersonNames> ResolveNamesAsync(IEnumerable<ServiceRequest> requests, CancellationToken ct) =>
+        _names.LoadAsync(requests.SelectMany(CollectUserIds), ct);
+
+    private static IEnumerable<Guid> CollectUserIds(ServiceRequest r)
+    {
+        yield return r.CitizenId;
+        foreach (var c in r.Comments) yield return c.AuthorId;
+        foreach (var h in r.StatusHistory)
+            if (h.ChangedById is { } id) yield return id;
+    }
+
+    private static ServiceRequestDto ToDto(ServiceRequest r, bool includeInternal, PersonNames names) => new(
+        r.Id, r.Code, r.PublicServiceId, r.CitizenId, names.Name(r.CitizenId), names.Phone(r.CitizenId), r.ServicePointId, r.AssignedOfficerId,
         r.Status, r.Note, r.SubmittedAt, r.DueAt, r.CompletedAt,
         r.Documents.OrderBy(d => d.CreatedAt).Select(d => new RequestDocumentDto(d.Id, d.Url, d.DocumentType, d.FileName, d.IsSupplement)).ToList(),
-        r.StatusHistory.OrderBy(h => h.ChangedAt).Select(h => new RequestHistoryDto(h.FromStatus, h.ToStatus, h.ChangedById, h.Note, h.ChangedAt)).ToList());
+        r.Comments.Where(c => includeInternal || !c.IsInternal)
+            .OrderBy(c => c.CreatedAt)
+            .Select(c => new RequestCommentDto(c.Id, c.AuthorId, names.Name(c.AuthorId), c.Content, c.IsInternal, c.CreatedAt)).ToList(),
+        r.StatusHistory.OrderBy(h => h.ChangedAt).Select(h => new RequestHistoryDto(h.FromStatus, h.ToStatus, h.ChangedById, names.Name(h.ChangedById), h.Note, h.ChangedAt)).ToList());
 }

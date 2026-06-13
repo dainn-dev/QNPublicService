@@ -1,5 +1,6 @@
 // ============================================================
-// Cổng cán bộ — Dashboard (KPI + biểu đồ)
+// Cổng cán bộ — Dashboard (KPI + biểu đồ + heatmap) — đọc API thật
+// Nguồn: /api/manage/stats/* , /api/manage/service-requests , /api/public-services
 // ============================================================
 
 function KpiCard({ icon, label, value, delta, deltaTone = 'success' }) {
@@ -17,12 +18,23 @@ function KpiCard({ icon, label, value, delta, deltaTone = 'success' }) {
   );
 }
 
-// Biểu đồ cột nhóm (SVG)
+// Delta tháng này so với tháng trước: % khi có nền (tháng trước > 0),
+// ngược lại hiển thị chênh lệch tuyệt đối. invert=true → tăng là xấu (tô đỏ).
+function monthDelta(thisV, lastV, t, invert) {
+  const diff = thisV - lastV;
+  const text = lastV > 0
+    ? (diff / lastV * 100).toLocaleString('vi-VN', { minimumFractionDigits: 1, maximumFractionDigits: 1, signDisplay: 'exceptZero' }) + '%'
+    : diff.toLocaleString('vi-VN', { signDisplay: 'exceptZero' });
+  const tone = invert ? (diff > 0 ? 'danger' : 'success') : (diff >= 0 ? 'success' : 'danger');
+  return { delta: text + ' ' + t('kpi_vs_last_month'), deltaTone: tone };
+}
+
+// Biểu đồ cột nhóm (SVG) — data: [{ m, received, resolved }]
 function BarChart({ data, lang }) {
   const t = useT(lang);
   const W = 560, H = 240, padL = 40, padB = 28, padT = 14;
-  const max = Math.max(...data.map((d) => Math.max(d.received, d.resolved)));
-  const niceMax = Math.ceil(max / 50) * 50;
+  const max = Math.max(1, ...data.map((d) => Math.max(d.received, d.resolved)));
+  const niceMax = Math.max(50, Math.ceil(max / 50) * 50);
   const chartW = W - padL - 10, chartH = H - padT - padB;
   const groupW = chartW / data.length;
   const barW = Math.min(22, groupW * 0.28);
@@ -44,7 +56,7 @@ function BarChart({ data, lang }) {
             <g key={i}>
               <rect x={cx - barW - 2} y={y(d.received)} width={barW} height={padT + chartH - y(d.received)} rx="4" fill="var(--primary)"/>
               <rect x={cx + 2} y={y(d.resolved)} width={barW} height={padT + chartH - y(d.resolved)} rx="4" fill="var(--primary-soft-2)" stroke="var(--primary-border)" strokeWidth="1"/>
-              <text x={cx} y={H - 8} textAnchor="middle" fontSize="11.5" fill="var(--ink-3)" fontFamily="var(--font)" fontWeight="600">{t('month_short')}{d.m}</text>
+              <text x={cx} y={H - 8} textAnchor="middle" fontSize="11.5" fill="var(--ink-3)" fontFamily="var(--font)" fontWeight="600">{t('month_short')}{d.m != null ? d.m : (i + 1)}</text>
             </g>
           );
         })}
@@ -57,24 +69,23 @@ function BarChart({ data, lang }) {
   );
 }
 
-// Thanh ngang theo loại phản ánh
-function CategoryBars({ lang }) {
-  const t = useT(lang);
-  const data = window.ODATA.feedbackByCategory;
-  const max = Math.max(...data.map((d) => d.count));
+// Thanh ngang theo loại phản ánh — data: [{ id, name, count }], catMap: id → {icon, vi, en}
+function CategoryBars({ data, catMap, lang }) {
+  const max = Math.max(1, ...data.map((d) => d.count));
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
       {data.map((d) => {
-        const c = window.DATA.feedbackCategories.find((x) => x.id === d.id);
+        const c = catMap[d.id];
+        const name = c ? pick(c, lang) : d.name;
         return (
           <div key={d.id} style={{ display: 'grid', gridTemplateColumns: '150px 1fr 34px', gap: 12, alignItems: 'center' }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 'var(--fs-13)', fontWeight: 600, color: 'var(--ink-2)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              <Icon name={c.icon} size={15} style={{ color: 'var(--ink-3)' }}/>{pick(c, lang)}
+              <Icon name={(c && c.icon) || 'megaphone'} size={15} style={{ color: 'var(--ink-3)' }}/>{name}
             </span>
             <span style={{ height: 10, background: 'var(--bg-sunken)', borderRadius: 'var(--r-full)', overflow: 'hidden' }}>
               <span style={{ display: 'block', height: '100%', width: `${(d.count / max) * 100}%`, background: 'var(--primary)', borderRadius: 'var(--r-full)' }}></span>
             </span>
-            <strong style={{ fontSize: 'var(--fs-13)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{d.count}</strong>
+            <strong style={{ fontSize: 'var(--fs-13)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{d.count.toLocaleString('vi-VN')}</strong>
           </div>
         );
       })}
@@ -82,59 +93,119 @@ function CategoryBars({ lang }) {
   );
 }
 
-// Bản đồ nhiệt phản ánh (circle markers theo cường độ)
-function FeedbackHeatmap({ lang }) {
+// Bản đồ nhiệt phản ánh — data: [{ lat, lng, weight }]
+function FeedbackHeatmap({ data }) {
   const ref = React.useRef(null);
   const mapRef = React.useRef(null);
+  const layerRef = React.useRef(null);
+
   React.useEffect(() => {
     if (!ref.current || mapRef.current) return;
     const map = L.map(ref.current, { scrollWheelZoom: false }).setView([15.119, 108.793], 13);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { attribution: '&copy; OpenStreetMap contributors &copy; CARTO', subdomains: 'abcd', maxZoom: 19 }).addTo(map);
-    window.ODATA.heat.forEach(([lat, lng, w]) => {
-      L.circle([lat, lng], {
-        radius: 90 + w * 60,
-        color: 'transparent',
-        fillColor: w >= 7 ? '#B91C1C' : w >= 4 ? '#EA8C00' : '#15803D',
-        fillOpacity: 0.16 + w * 0.035,
-      }).addTo(map);
-      L.circleMarker([lat, lng], { radius: 4, color: '#fff', weight: 1.5, fillColor: w >= 7 ? '#B91C1C' : w >= 4 ? '#EA8C00' : '#15803D', fillOpacity: 1 }).addTo(map);
-    });
+    layerRef.current = L.layerGroup().addTo(map);
     mapRef.current = map;
-    return () => { map.remove(); mapRef.current = null; };
+    return () => { map.remove(); mapRef.current = null; layerRef.current = null; };
   }, []);
+
+  React.useEffect(() => {
+    const lg = layerRef.current;
+    if (!lg) return;
+    lg.clearLayers();
+    (data || []).forEach((p) => {
+      const w = p.weight;
+      const color = w >= 7 ? '#B91C1C' : w >= 4 ? '#EA8C00' : '#15803D';
+      L.circle([p.lat, p.lng], { radius: 90 + w * 60, color: 'transparent', fillColor: color, fillOpacity: Math.min(0.6, 0.16 + w * 0.035) }).addTo(lg);
+      L.circleMarker([p.lat, p.lng], { radius: 4, color: '#fff', weight: 1.5, fillColor: color, fillOpacity: 1 }).addTo(lg);
+    });
+  }, [data]);
+
   return <div ref={ref} style={{ height: 300, zIndex: 0, position: 'relative', borderRadius: '0 0 var(--r-lg) var(--r-lg)' }}></div>;
+}
+
+// Card rỗng nhỏ gọn khi không có dữ liệu.
+function DashEmpty({ lang, minHeight = 120 }) {
+  const t = useT(lang);
+  return (
+    <div style={{ display: 'grid', placeItems: 'center', gap: 8, minHeight, color: 'var(--ink-4)' }}>
+      <Icon name="doc" size={20} /><span style={{ fontSize: 'var(--fs-13)' }}>{t('empty')}</span>
+    </div>
+  );
 }
 
 function OfficerDashboard({ lang, navigate }) {
   const t = useT(lang);
-  const k = window.ODATA.kpi;
-  const myOpen = window.ODATA.requests.filter((r) => r.officerId === window.ODATA.me.id && !['completed', 'rejected'].includes(r.status));
+  const API = window.API;
+  const me = window.ODATA.me || {};
+
+  // KPI tổng quan.
+  const overview = useApiData((signal) => API.manage.stats.overview({ signal }), []);
+  // Biểu đồ cột theo tháng (6 tháng gần nhất).
+  const byMonth = useApiData((signal) => API.manage.stats.requestsByMonth(6, { signal }), []);
+  // Phản ánh theo lĩnh vực + bản đồ icon loại phản ánh.
+  const byCat = useApiData((signal) => Promise.all([
+    API.manage.stats.feedbackByCategory({ signal }),
+    API.getFeedbackCategories({ signal }),
+  ]).then(([rows, cats]) => {
+    const map = {};
+    cats.forEach((c) => { map[c.id] = c; });
+    return { rows, catMap: map };
+  }), []);
+  // Heatmap phản ánh.
+  const heat = useApiData((signal) => API.manage.stats.feedbackHeatmap({ signal }), []);
+  // Hồ sơ của tôi (lọc trạng thái mở ở FE) + tên dịch vụ.
+  const mine = useApiData((signal) => {
+    if (!me.id) return Promise.resolve({ items: [], serviceMap: {} });
+    return Promise.all([
+      API.manage.requests({ assignedOfficerId: me.id, pageSize: 100 }, { signal }),
+      API.getServices({}, { signal }),
+    ]).then(([paged, services]) => {
+      const serviceMap = {};
+      services.forEach((s) => { serviceMap[s.id] = s; });
+      const open = (paged.items || []).filter((r) => !['completed', 'rejected', 'cancelled'].includes(r.status));
+      return { items: open, serviceMap };
+    });
+  }, [me.id]);
+
+  const k = overview.data;
+  const deltaTotal = k ? monthDelta(k.requestsThisMonth, k.requestsLastMonth, t, false) : null;
+  const deltaFeedback = k ? monthDelta(k.feedbackThisMonth, k.feedbackLastMonth, t, true) : null;
+
+  const myItems = (mine.data && mine.data.items) || [];
+  const serviceMap = (mine.data && mine.data.serviceMap) || {};
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
       <div>
         <h1 style={{ fontSize: 'var(--fs-24)', fontWeight: 800, letterSpacing: '-0.01em' }}>{t('op_dashboard')}</h1>
-        <p style={{ color: 'var(--ink-3)', fontSize: 'var(--fs-14)', marginTop: 4 }}>{lang === 'en' ? 'Wednesday, June 11, 2026' : 'Thứ Tư, 11/06/2026'} · {t('city')}</p>
+        <p style={{ color: 'var(--ink-3)', fontSize: 'var(--fs-14)', marginTop: 4 }}>{t('city')}</p>
       </div>
 
       {/* KPI */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 14 }}>
-        <KpiCard icon="doc" label={t('kpi_total_requests')} value={k.total.toLocaleString('vi-VN')} delta={`${k.deltas.total} ${t('kpi_vs_last_month')}`}/>
-        <KpiCard icon="clock" label={t('kpi_open_requests')} value={k.open} delta={`${k.deltas.open} ${t('kpi_vs_last_month')}`}/>
-        <KpiCard icon="check" label={t('kpi_resolved_requests')} value={k.resolved.toLocaleString('vi-VN')} delta={`${k.deltas.resolved} ${t('kpi_vs_last_month')}`}/>
-        <KpiCard icon="megaphone" label={t('kpi_open_feedback')} value={k.openFeedback} delta={`${k.deltas.openFeedback} ${t('kpi_vs_last_month')}`} deltaTone="danger"/>
-        <KpiCard icon="shield" label={t('kpi_sla')} value={k.sla} delta={`${k.deltas.sla} ${t('kpi_vs_last_month')}`}/>
-      </div>
+      <OpApiState loading={overview.loading} error={overview.error} reload={overview.reload} lang={lang} minHeight={130}>
+        {k &&
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 14 }}>
+            <KpiCard icon="doc" label={t('kpi_total_requests')} value={k.totalRequests.toLocaleString('vi-VN')} delta={deltaTotal.delta} deltaTone={deltaTotal.deltaTone}/>
+            <KpiCard icon="clock" label={t('kpi_open_requests')} value={k.openRequests.toLocaleString('vi-VN')}/>
+            <KpiCard icon="check" label={t('kpi_resolved_requests')} value={k.resolvedRequests.toLocaleString('vi-VN')}/>
+            <KpiCard icon="megaphone" label={t('kpi_open_feedback')} value={k.openFeedback.toLocaleString('vi-VN')} delta={deltaFeedback.delta} deltaTone={deltaFeedback.deltaTone}/>
+            <KpiCard icon="shield" label={t('kpi_sla')} value={k.onTimeRate.toLocaleString('vi-VN', { maximumFractionDigits: 1 }) + '%'}/>
+          </div>}
+      </OpApiState>
 
       {/* Biểu đồ */}
       <div className="dash-charts" style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 18, alignItems: 'start' }}>
         <section className="card" style={{ padding: '20px 22px', background: '#fff' }}>
-          <h2 style={{ fontSize: 'var(--fs-16)', marginBottom: 16 }}>{t('ch_requests_by_month')} · 2026</h2>
-          <BarChart data={window.ODATA.requestsByMonth} lang={lang}/>
+          <h2 style={{ fontSize: 'var(--fs-16)', marginBottom: 16 }}>{t('ch_requests_by_month')}</h2>
+          <OpApiState loading={byMonth.loading} error={byMonth.error} reload={byMonth.reload} lang={lang} minHeight={240}>
+            {byMonth.data && (byMonth.data.length ? <BarChart data={byMonth.data} lang={lang}/> : <DashEmpty lang={lang} minHeight={200}/>)}
+          </OpApiState>
         </section>
         <section className="card" style={{ padding: '20px 22px', background: '#fff' }}>
           <h2 style={{ fontSize: 'var(--fs-16)', marginBottom: 18 }}>{t('ch_feedback_by_category')}</h2>
-          <CategoryBars lang={lang}/>
+          <OpApiState loading={byCat.loading} error={byCat.error} reload={byCat.reload} lang={lang} minHeight={200}>
+            {byCat.data && (byCat.data.rows.length ? <CategoryBars data={byCat.data.rows} catMap={byCat.data.catMap} lang={lang}/> : <DashEmpty lang={lang} minHeight={180}/>)}
+          </OpApiState>
         </section>
       </div>
 
@@ -142,25 +213,29 @@ function OfficerDashboard({ lang, navigate }) {
         {/* Hồ sơ của tôi */}
         <section className="card" style={{ padding: '20px 22px', background: '#fff' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12, gap: 10 }}>
-            <h2 style={{ fontSize: 'var(--fs-16)' }}>{lang === 'en' ? 'Assigned to me' : 'Hồ sơ tôi đang xử lý'} ({myOpen.length})</h2>
+            <h2 style={{ fontSize: 'var(--fs-16)' }}>{lang === 'en' ? 'Assigned to me' : 'Hồ sơ tôi đang xử lý'} ({myItems.length})</h2>
             <button onClick={() => navigate('requests')} style={{ border: 'none', background: 'none', color: 'var(--primary)', fontWeight: 600, fontSize: 'var(--fs-13)', cursor: 'pointer' }}>{t('view_all')}</button>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {myOpen.map((r, i) => {
-              const s = window.DATA.services.find((x) => x.id === r.serviceId);
-              return (
-                <button key={r.id} onClick={() => navigate('requests/' + r.id)}
-                  style={{ display: 'flex', flexDirection: 'column', gap: 3, padding: '11px 2px', borderTop: i ? '1px solid var(--line-soft)' : 'none', background: 'none', border: 'none', borderTopStyle: i ? 'solid' : undefined, textAlign: 'left', cursor: 'pointer', width: '100%' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
-                    <strong style={{ fontSize: 'var(--fs-13)', fontVariantNumeric: 'tabular-nums' }}>{r.id}</strong>
-                    <StatusBadge status={r.status} map={window.STATUS_META} lang={lang}/>
-                  </span>
-                  <span style={{ fontSize: 'var(--fs-13)', color: 'var(--ink-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s ? pick(s, lang) : ''} — {r.citizen}</span>
-                  <DueBadge dueState={r.dueState} due={r.due} lang={lang}/>
-                </button>
-              );
-            })}
-          </div>
+          <OpApiState loading={mine.loading} error={mine.error} reload={mine.reload} lang={lang} minHeight={160}>
+            {mine.data && (myItems.length === 0
+              ? <DashEmpty lang={lang} minHeight={140}/>
+              : <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  {myItems.map((r, i) => {
+                    const s = serviceMap[r.serviceId];
+                    return (
+                      <button key={r.rawId} onClick={() => navigate('requests/' + r.rawId)}
+                        style={{ display: 'flex', flexDirection: 'column', gap: 3, padding: '11px 2px', borderTop: i ? '1px solid var(--line-soft)' : 'none', background: 'none', border: 'none', borderTopStyle: i ? 'solid' : undefined, textAlign: 'left', cursor: 'pointer', width: '100%' }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
+                          <strong style={{ fontSize: 'var(--fs-13)', fontVariantNumeric: 'tabular-nums' }}>{r.id}</strong>
+                          <StatusBadge status={r.status} map={window.STATUS_META} lang={lang}/>
+                        </span>
+                        <span style={{ fontSize: 'var(--fs-13)', color: 'var(--ink-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s ? pick(s, lang) : ''}{r.citizen ? ' — ' + r.citizen : ''}</span>
+                        <DueBadge dueState={r.dueState} due={r.due} lang={lang}/>
+                      </button>
+                    );
+                  })}
+                </div>)}
+          </OpApiState>
         </section>
 
         {/* Heatmap */}
@@ -173,7 +248,9 @@ function OfficerDashboard({ lang, navigate }) {
               <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 10, height: 10, borderRadius: '50%', background: '#15803D' }}></span>{t('pr_low')}</span>
             </div>
           </div>
-          <FeedbackHeatmap lang={lang}/>
+          <OpApiState loading={heat.loading} error={heat.error} reload={heat.reload} lang={lang} minHeight={300}>
+            {heat.data && <FeedbackHeatmap data={heat.data}/>}
+          </OpApiState>
         </section>
       </div>
 

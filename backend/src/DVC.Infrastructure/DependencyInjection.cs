@@ -31,6 +31,7 @@ public static class DependencyInjection
         // Single seam over DainnUser — everything else depends only on these interfaces.
         services.AddScoped<IIdentityService, DainnUserAuthAdapter>();
         services.AddScoped<IUserAdminService, DainnUserUserAdminAdapter>();
+        services.AddScoped<IUserDirectory, DainnUserUserDirectory>();
 
         // Our domain store: snake_case tables, isolated from DainnUser's PascalCase tables.
         var connectionString = configuration.GetConnectionString("Default")
@@ -85,6 +86,16 @@ public static class DependencyInjection
 
         // Seed reference data (feedback categories, …).
         await Persistence.Seed.ReferenceDataSeeder.SeedAsync(app, ct);
+
+        // Seed a default admin so the portal can be signed into out of the box.
+        var config = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+        var identityService = scope.ServiceProvider.GetRequiredService<IIdentityService>();
+        await Persistence.Seed.AdminUserSeeder.SeedAsync(
+            app, identityService, userAdmin,
+            config["Seed:Admin:Email"] ?? "admin@dvc.local",
+            config["Seed:Admin:Username"] ?? "admin",
+            config["Seed:Admin:Password"] ?? "Admin@123456",
+            ct);
     }
 
     /// <summary>Seeds provinces/wards from the public API only when the table is empty (dev convenience).</summary>

@@ -16,8 +16,10 @@ public sealed class ManageFeedbackController : ControllerBase
 
     [HttpGet]
     public async Task<IActionResult> List(
-        [FromQuery] FeedbackStatus? status, [FromQuery] Guid? assignedOfficerId, [FromQuery] FeedbackPriority? priority, CancellationToken ct)
-        => Ok(await _feedback.ListForOfficerAsync(status, assignedOfficerId, priority, ct));
+        [FromQuery] FeedbackStatus? status, [FromQuery] Guid? assignedOfficerId, [FromQuery] FeedbackPriority? priority,
+        [FromQuery] Guid? categoryId, [FromQuery] int? wardCode,
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default)
+        => Ok(await _feedback.ListForOfficerAsync(status, assignedOfficerId, priority, categoryId, wardCode, page, pageSize, ct));
 
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> Get(Guid id, CancellationToken ct)

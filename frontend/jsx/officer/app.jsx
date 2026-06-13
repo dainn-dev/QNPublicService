@@ -20,18 +20,12 @@ function opParseHash() {
   return path || 'dashboard';
 }
 
-function OfficerApp() {
+function OfficerApp({ onLogout }) {
   const [tw, setTweak] = useTweaks(OP_TWEAK_DEFAULTS);
   const [lang, setLang] = React.useState(() => localStorage.getItem('qng-portal-lang') || 'vi');
   const [path, setPath] = React.useState(opParseHash());
   const [toast, setToast] = React.useState('');
   const toastTimer = React.useRef(null);
-
-  // Dữ liệu nghiệp vụ trong phiên
-  const [requests, setRequests] = React.useState(window.ODATA.requests);
-  const [feedbacks, setFeedbacks] = React.useState(window.ODATA.feedbacks);
-  const updateRequest = (id, patch) => setRequests((rs) => rs.map((r) => r.id === id ? { ...r, ...patch } : r));
-  const updateFeedback = (id, patch) => setFeedbacks((fs) => fs.map((f) => f.id === id ? { ...f, ...patch } : f));
 
   const showToast = (msg) => {
     setToast(msg);
@@ -80,20 +74,20 @@ function OfficerApp() {
   if (path === 'dashboard') {
     screen = <OfficerDashboard lang={lang} navigate={navigate}/>;
   } else if (path === 'requests') {
-    screen = <OfficerRequests lang={lang} navigate={navigate} requests={requests} updateRequest={updateRequest} showToast={showToast}/>;
+    screen = <OfficerRequests lang={lang} navigate={navigate} showToast={showToast}/>;
   } else if (seg[0] === 'requests' && seg[1]) {
-    screen = <OfficerRequestDetail lang={lang} navigate={navigate} requests={requests} updateRequest={updateRequest} showToast={showToast} requestId={decodeURIComponent(seg.slice(1).join('/'))}/>;
+    screen = <OfficerRequestDetail lang={lang} navigate={navigate} showToast={showToast} requestId={decodeURIComponent(seg.slice(1).join('/'))}/>;
   } else if (path === 'feedback') {
-    screen = <OfficerFeedback lang={lang} navigate={navigate} feedbacks={feedbacks} updateFeedback={updateFeedback} showToast={showToast}/>;
+    screen = <OfficerFeedback lang={lang} navigate={navigate} showToast={showToast}/>;
   } else if (seg[0] === 'feedback' && seg[1]) {
-    screen = <OfficerFeedbackDetail lang={lang} navigate={navigate} feedbacks={feedbacks} updateFeedback={updateFeedback} showToast={showToast} feedbackId={decodeURIComponent(seg.slice(1).join('/'))}/>;
+    screen = <OfficerFeedbackDetail lang={lang} navigate={navigate} showToast={showToast} feedbackId={decodeURIComponent(seg.slice(1).join('/'))}/>;
   } else {
     screen = <OfficerDashboard lang={lang} navigate={navigate}/>;
   }
 
   return (
     <React.Fragment>
-      <OfficerShell lang={lang} setLang={setLang} route={path} navigate={navigate}>
+      <OfficerShell lang={lang} setLang={setLang} route={path} navigate={navigate} onLogout={onLogout}>
         <div key={path} className="fade-up">{screen}</div>
       </OfficerShell>
       <Toast message={toast}/>
@@ -112,4 +106,4 @@ function OfficerApp() {
   );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<OfficerApp/>);
+ReactDOM.createRoot(document.getElementById('root')).render(<OfficerRoot/>);

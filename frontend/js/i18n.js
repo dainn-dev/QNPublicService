@@ -19,7 +19,11 @@ window.I18N = {
     required: 'Bắt buộc',
     optional: 'Không bắt buộc',
     loading: 'Đang tải…',
+    load_error: 'Không tải được dữ liệu. Vui lòng thử lại.',
+    retry: 'Thử lại',
     empty: 'Không có dữ liệu',
+    an_empty: 'Chưa có thông báo nào',
+    an_not_found: 'Không tìm thấy thông báo',
     km: 'km',
     minutes: 'phút',
     free: 'Miễn phí',
@@ -202,6 +206,7 @@ window.I18N = {
     st_waiting: 'Chờ bổ sung',
     st_completed: 'Hoàn thành',
     st_rejected: 'Từ chối',
+    st_cancelled: 'Đã hủy',
 
     // Phản ánh
     fb_create_title: 'Gửi phản ánh hiện trường',
@@ -236,6 +241,7 @@ window.I18N = {
     fst_assigned: 'Đã phân công',
     fst_processing: 'Đang xử lý',
     fst_resolved: 'Đã giải quyết',
+    fst_rejected: 'Từ chối',
     fst_closed: 'Đã đóng',
 
     // Hồ sơ cá nhân
@@ -274,7 +280,11 @@ window.I18N = {
     required: 'Required',
     optional: 'Optional',
     loading: 'Loading…',
+    load_error: 'Failed to load data. Please try again.',
+    retry: 'Retry',
     empty: 'No data',
+    an_empty: 'No announcements yet',
+    an_not_found: 'Announcement not found',
     km: 'km',
     minutes: 'min',
     free: 'Free',
@@ -448,6 +458,7 @@ window.I18N = {
     st_waiting: 'Awaiting supplement',
     st_completed: 'Completed',
     st_rejected: 'Rejected',
+    st_cancelled: 'Cancelled',
 
     fb_create_title: 'Report an issue',
     fb_create_sub: 'Report infrastructure, environment, or public order issues in the city',
@@ -480,6 +491,7 @@ window.I18N = {
     fst_assigned: 'Assigned',
     fst_processing: 'Processing',
     fst_resolved: 'Resolved',
+    fst_rejected: 'Rejected',
     fst_closed: 'Closed',
 
     profile_title: 'My account',

@@ -14,5 +14,9 @@ public class OfficerProfile : BaseEntity, IAuditableEntity
     public string? Position { get; set; }
     public Guid? ServicePointId { get; set; }
     public string? PhoneNumber { get; set; }
+
+    /// <summary>Wards this officer is responsible for, as a comma-separated list of ward codes/names.</summary>
+    public string? Area { get; set; }
+
     public bool IsActive { get; set; } = true;
 }

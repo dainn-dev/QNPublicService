@@ -19,6 +19,21 @@ public sealed class NotificationConfiguration : IEntityTypeConfiguration<Notific
     }
 }
 
+public sealed class NotificationCampaignConfiguration : IEntityTypeConfiguration<NotificationCampaign>
+{
+    public void Configure(EntityTypeBuilder<NotificationCampaign> b)
+    {
+        b.ToTable("notification_campaigns");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Type).HasConversion<string>().HasMaxLength(30);
+        b.Property(x => x.Audience).HasConversion<string>().HasMaxLength(30);
+        b.Property(x => x.Department).HasMaxLength(150);
+        b.Property(x => x.Title).HasMaxLength(255).IsRequired();
+        b.Property(x => x.Message).IsRequired();
+        b.HasIndex(x => x.SentAt);
+    }
+}
+
 public sealed class AuditLogConfiguration : IEntityTypeConfiguration<AuditLog>
 {
     public void Configure(EntityTypeBuilder<AuditLog> b)

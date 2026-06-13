@@ -20,8 +20,8 @@ public sealed class CatalogController : ControllerBase
 
     [HttpGet("public-services")]
     [AllowAnonymous]
-    public async Task<IActionResult> GetServices([FromQuery] Guid? categoryId, CancellationToken ct)
-        => Ok(await _catalog.GetServicesAsync(categoryId, includeInactive: false, ct));
+    public async Task<IActionResult> GetServices([FromQuery] Guid? categoryId, [FromQuery] bool? featured, CancellationToken ct)
+        => Ok(await _catalog.GetServicesAsync(categoryId, includeInactive: false, featured, ct));
 
     [HttpGet("public-services/{id:guid}")]
     [AllowAnonymous]

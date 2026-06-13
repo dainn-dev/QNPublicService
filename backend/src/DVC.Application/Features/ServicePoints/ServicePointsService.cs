@@ -46,6 +46,7 @@ public sealed class ServicePointsService
         {
             Code = dto.Code,
             Name = dto.Name,
+            NameEn = dto.NameEn,
             Type = dto.Type,
             Address = dto.Address,
             ProvinceCode = dto.ProvinceCode,
@@ -69,6 +70,7 @@ public sealed class ServicePointsService
             ?? throw NotFoundException.For("Service point", id);
 
         entity.Name = dto.Name;
+        entity.NameEn = dto.NameEn;
         entity.Type = dto.Type;
         entity.Address = dto.Address;
         entity.ProvinceCode = dto.ProvinceCode;
@@ -123,7 +125,7 @@ public sealed class ServicePointsService
     }
 
     private static ServicePointDto ToDto(ServicePoint p) => new(
-        p.Id, p.Code, p.Name, p.Type, p.Address, p.ProvinceCode, p.WardCode, p.Latitude, p.Longitude,
+        p.Id, p.Code, p.Name, p.NameEn, p.Type, p.Address, p.ProvinceCode, p.WardCode, p.Latitude, p.Longitude,
         p.Phone, p.Email, p.Website, p.WorkingHours, p.IsActive,
         p.Services.Select(s => s.PublicServiceId).ToList(),
         p.Images.OrderBy(i => i.DisplayOrder).Select(i => new ServicePointImageDto(i.Id, i.Url, i.Caption, i.DisplayOrder)).ToList());

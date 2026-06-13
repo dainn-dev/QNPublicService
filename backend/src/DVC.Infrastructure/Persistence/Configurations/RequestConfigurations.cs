@@ -17,6 +17,7 @@ public sealed class ServiceRequestConfiguration : IEntityTypeConfiguration<Servi
 
         b.HasOne<PublicService>().WithMany().HasForeignKey(x => x.PublicServiceId).OnDelete(DeleteBehavior.Restrict);
         b.HasMany(x => x.Documents).WithOne(x => x.ServiceRequest!).HasForeignKey(x => x.ServiceRequestId).OnDelete(DeleteBehavior.Cascade);
+        b.HasMany(x => x.Comments).WithOne(x => x.ServiceRequest!).HasForeignKey(x => x.ServiceRequestId).OnDelete(DeleteBehavior.Cascade);
         b.HasMany(x => x.StatusHistory).WithOne(x => x.ServiceRequest!).HasForeignKey(x => x.ServiceRequestId).OnDelete(DeleteBehavior.Cascade);
 
         b.HasIndex(x => x.CitizenId);
@@ -33,6 +34,17 @@ public sealed class ServiceRequestDocumentConfiguration : IEntityTypeConfigurati
         b.HasKey(x => x.Id);
         b.Property(x => x.Url).IsRequired();
         b.Property(x => x.DocumentType).HasMaxLength(100);
+    }
+}
+
+public sealed class ServiceRequestCommentConfiguration : IEntityTypeConfiguration<ServiceRequestComment>
+{
+    public void Configure(EntityTypeBuilder<ServiceRequestComment> b)
+    {
+        b.ToTable("service_request_comments");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Content).IsRequired();
+        b.HasIndex(x => x.ServiceRequestId);
     }
 }
 

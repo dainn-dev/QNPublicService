@@ -13,6 +13,7 @@ public sealed class ServicePointConfiguration : IEntityTypeConfiguration<Service
         b.Property(x => x.Code).HasMaxLength(50).IsRequired();
         b.HasIndex(x => x.Code).IsUnique();
         b.Property(x => x.Name).HasMaxLength(255).IsRequired();
+        b.Property(x => x.NameEn).HasMaxLength(255);
         b.Property(x => x.Type).HasConversion<string>().HasMaxLength(50);
         b.Property(x => x.Address).IsRequired();
         b.Property(x => x.Latitude).HasColumnType("numeric(10,7)");

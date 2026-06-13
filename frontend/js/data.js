@@ -410,6 +410,7 @@ window.STATUS_META = {
   waiting:    { labelKey: 'st_waiting',    tone: 'danger' },
   completed:  { labelKey: 'st_completed',  tone: 'success' },
   rejected:   { labelKey: 'st_rejected',   tone: 'danger' },
+  cancelled:  { labelKey: 'st_cancelled',  tone: 'neutral' },
 };
 window.FB_STATUS_META = {
   submitted:  { labelKey: 'fst_submitted',  tone: 'neutral' },
@@ -417,5 +418,6 @@ window.FB_STATUS_META = {
   assigned:   { labelKey: 'fst_assigned',   tone: 'info' },
   processing: { labelKey: 'fst_processing', tone: 'warning' },
   resolved:   { labelKey: 'fst_resolved',   tone: 'success' },
+  rejected:   { labelKey: 'fst_rejected',   tone: 'danger' },
   closed:     { labelKey: 'fst_closed',     tone: 'neutral' },
 };

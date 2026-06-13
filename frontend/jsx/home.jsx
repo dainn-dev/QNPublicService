@@ -43,6 +43,31 @@ function OsmMap({ height = 380, points, center = [15.121, 108.794], zoom = 14, o
   return <div ref={ref} style={{ height, borderRadius: radius, zIndex: 0, position: 'relative' }}></div>;
 }
 
+// ---------- Trạng thái tải/lỗi dùng chung cho các khối gọi API ----------
+// children là hàm trả về node, chỉ được gọi khi đã có dữ liệu (không loading/lỗi).
+function ApiState({ loading, error, reload, lang, minHeight = 120, children }) {
+  const t = useT(lang);
+  if (loading) {
+    return (
+      <div style={{ display: 'grid', placeItems: 'center', gap: 10, minHeight, padding: '24px 0', color: 'var(--ink-3)' }}>
+        <span className="api-spin" aria-hidden="true"></span>
+        <span style={{ fontSize: 'var(--fs-14)' }}>{t('loading')}</span>
+        <style>{`.api-spin{width:26px;height:26px;border-radius:50%;border:2.5px solid var(--line);border-top-color:var(--primary);animation:apiSpin .8s linear infinite}@keyframes apiSpin{to{transform:rotate(360deg)}}`}</style>
+      </div>);
+  }
+  if (error) {
+    return (
+      <div style={{ display: 'grid', placeItems: 'center', gap: 12, minHeight, padding: '24px 0', textAlign: 'center', color: 'var(--ink-3)' }}>
+        <span style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--danger-soft)', color: 'var(--danger)', display: 'grid', placeItems: 'center' }}>
+          <Icon name="alert" size={22} />
+        </span>
+        <span style={{ fontSize: 'var(--fs-14)' }}>{t('load_error')}</span>
+        {reload && <button className="btn btn-soft btn-sm" onClick={reload}><Icon name="navigation" size={14} />{t('retry')}</button>}
+      </div>);
+  }
+  return typeof children === 'function' ? children() : children;
+}
+
 // ---------- Khối dùng chung của trang chủ ----------
 function QuickActionCards({ lang, navigate, compact }) {
   const t = useT(lang);
@@ -70,6 +95,8 @@ function QuickActionCards({ lang, navigate, compact }) {
 
 function CategoryGrid({ lang, navigate }) {
   const t = useT(lang);
+  const { data, loading, error, reload } = useApiData((signal) => API.getCategoriesWithCounts({ signal }), []);
+  const categories = data || [];
   return (
     <section className="container" style={{ marginTop: 64 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 16, marginBottom: 22 }}>
@@ -78,27 +105,38 @@ function CategoryGrid({ lang, navigate }) {
           {t('view_all')} <Icon name="chevronright" size={15} />
         </a>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14 }}>
-        {window.DATA.categories.map((c) =>
-        <button key={c.id} onClick={() => navigate('services/' + c.id)} className="card card-hover"
-        style={{ padding: '18px 18px', display: 'flex', alignItems: 'center', gap: 14, background: '#fff', cursor: 'pointer', textAlign: 'left' }}>
-            <span style={{ width: 46, height: 46, borderRadius: 13, background: 'var(--bg-sunken)', color: 'var(--ink-2)', display: 'grid', placeItems: 'center', flex: 'none' }}>
-              <Icon name={c.icon} size={22} />
-            </span>
-            <span>
-              <strong style={{ display: 'block', fontSize: 'var(--fs-15)' }}>{pick(c, lang)}</strong>
-              <span style={{ fontSize: 'var(--fs-13)', color: 'var(--ink-3)' }}>{c.count} {t('svc_count')}</span>
-            </span>
-          </button>
-        )}
-      </div>
+      <ApiState loading={loading} error={error} reload={reload} lang={lang}>
+        {() =>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14 }}>
+          {categories.map((c) =>
+          <button key={c.id} onClick={() => navigate('services/' + c.id)} className="card card-hover"
+          style={{ padding: '18px 18px', display: 'flex', alignItems: 'center', gap: 14, background: '#fff', cursor: 'pointer', textAlign: 'left' }}>
+              <span style={{ width: 46, height: 46, borderRadius: 13, background: 'var(--bg-sunken)', color: 'var(--ink-2)', display: 'grid', placeItems: 'center', flex: 'none' }}>
+                <Icon name={c.icon} size={22} />
+              </span>
+              <span>
+                <strong style={{ display: 'block', fontSize: 'var(--fs-15)' }}>{pick(c, lang)}</strong>
+                {c.count != null && <span style={{ fontSize: 'var(--fs-13)', color: 'var(--ink-3)' }}>{c.count} {t('svc_count')}</span>}
+              </span>
+            </button>
+          )}
+        </div>
+        }
+      </ApiState>
     </section>);
 
 }
 
 function FeaturedServices({ lang, navigate }) {
   const t = useT(lang);
-  const featured = window.DATA.services.filter((s) => s.featured);
+  const svc = useApiData((signal) => API.getFeaturedServices({ signal }), []);
+  const cats = useApiData((signal) => API.getCategories({ signal }), []);
+  const loading = svc.loading || cats.loading;
+  const error = svc.error || cats.error;
+  const reload = () => {svc.reload();cats.reload();};
+  const catById = {};
+  (cats.data || []).forEach((c) => {catById[c.id] = c;});
+  const featured = svc.data || [];
   return (
     <section className="container" style={{ marginTop: 64 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 16, marginBottom: 22 }}>
@@ -107,29 +145,33 @@ function FeaturedServices({ lang, navigate }) {
           {t('view_all')} <Icon name="chevronright" size={15} />
         </a>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
-        {featured.map((s) => {
-          const cat = window.DATA.categories.find((c) => c.id === s.categoryId);
-          return (
-            <button key={s.id} onClick={() => navigate('services/detail/' + s.id)} className="card card-hover"
-            style={{ padding: 22, background: '#fff', cursor: 'pointer', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 'var(--fs-13)', color: 'var(--ink-3)', fontWeight: 600 }}>
-                  <Icon name={cat.icon} size={15} />{pick(cat, lang)}
-                </span>
-                <Badge tone={s.level === 'full' ? 'success' : 'info'} dot={false}>
-                  {t(s.level === 'full' ? 'svc_level_full' : 'svc_level_partial')}
-                </Badge>
-              </div>
-              <strong style={{ fontSize: 'var(--fs-16)', lineHeight: 1.4 }}>{pick(s, lang)}</strong>
-              <div style={{ display: 'flex', gap: 16, fontSize: 'var(--fs-13)', color: 'var(--ink-3)', marginTop: 'auto' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Icon name="clock" size={14} />{s.processingDays} {t('svc_working_days')}</span>
-                <span style={{ fontWeight: 600, color: s.fee ? 'var(--ink-2)' : 'var(--success)' }}>{fmtFee(s.fee, t)}</span>
-              </div>
-            </button>);
+      <ApiState loading={loading} error={error} reload={reload} lang={lang}>
+        {() =>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
+          {featured.map((s) => {
+            const cat = catById[s.categoryId] || { icon: 'doc', vi: '', en: '' };
+            return (
+              <button key={s.id} onClick={() => navigate('services/detail/' + s.id)} className="card card-hover"
+              style={{ padding: 22, background: '#fff', cursor: 'pointer', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 'var(--fs-13)', color: 'var(--ink-3)', fontWeight: 600 }}>
+                    <Icon name={cat.icon} size={15} />{pick(cat, lang)}
+                  </span>
+                  <Badge tone={s.level === 'full' ? 'success' : 'info'} dot={false}>
+                    {t(s.level === 'full' ? 'svc_level_full' : 'svc_level_partial')}
+                  </Badge>
+                </div>
+                <strong style={{ fontSize: 'var(--fs-16)', lineHeight: 1.4 }}>{pick(s, lang)}</strong>
+                <div style={{ display: 'flex', gap: 16, fontSize: 'var(--fs-13)', color: 'var(--ink-3)', marginTop: 'auto' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Icon name="clock" size={14} />{s.processingDays} {t('svc_working_days')}</span>
+                  <span style={{ fontWeight: 600, color: s.fee ? 'var(--ink-2)' : 'var(--success)' }}>{fmtFee(s.fee, t)}</span>
+                </div>
+              </button>);
 
-        })}
-      </div>
+          })}
+        </div>
+        }
+      </ApiState>
     </section>);
 
 }
@@ -158,12 +200,14 @@ function AnnouncementList({ lang, items, navigate }) {
 
 function StatsBand({ lang }) {
   const t = useT(lang);
-  const s = window.DATA.stats;
+  const { data, loading } = useApiData((signal) => API.getStats({ signal }), []);
+  const s = data || {};
+  const ph = loading ? '…' : '—';
   const items = [
-  { value: s.services, key: 'stat_services' },
-  { value: s.points, key: 'stat_points' },
-  { value: s.resolved, key: 'stat_resolved' },
-  { value: s.satisfaction, key: 'stat_satisfaction' }];
+  { value: s.services != null ? s.services : ph, key: 'stat_services' },
+  { value: s.points != null ? s.points : ph, key: 'stat_points' },
+  { value: s.resolved != null ? s.resolved : ph, key: 'stat_resolved' },
+  { value: s.satisfaction != null ? s.satisfaction : ph, key: 'stat_satisfaction' }];
 
   return (
     <section style={{ background: 'var(--primary)', marginTop: 72 }}>
@@ -197,6 +241,8 @@ function HeroSearch({ lang, navigate, big }) {
 // ================== PHƯƠNG ÁN A — Hero trung tâm ==================
 function HomeA({ lang, navigate }) {
   const t = useT(lang);
+  const points = useApiData((signal) => API.getServicePoints({ signal }), []);
+  const anns = useApiData((signal) => API.getAnnouncements('all', { signal }), []);
   return (
     <main>
       {/* Hero */}
@@ -232,14 +278,18 @@ function HomeA({ lang, navigate }) {
                 <Icon name="mappin" size={15} />{t('open_map')}
               </button>
             </div>
-            <OsmMap height={350} points={window.DATA.servicePoints} radius="0" onMarkerClick={(p) => navigate('points/' + p.id)} />
+            <OsmMap height={350} points={points.data || []} radius="0" onMarkerClick={(p) => navigate('points/' + p.id)} />
           </div>
           <div className="card" style={{ padding: '20px 22px' }}>
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8 }}>
               <h2 style={{ fontSize: 'var(--fs-18)', fontWeight: 700 }}>{t('recent_announcements')}</h2>
               <a href="#/announcements" onClick={(e) => {e.preventDefault();navigate('announcements');}} style={{ fontSize: 'var(--fs-13)', fontWeight: 600 }}>{t('view_all')}</a>
             </div>
-            <AnnouncementList lang={lang} items={window.DATA.announcements} navigate={navigate} />
+            <ApiState loading={anns.loading} error={anns.error} reload={anns.reload} lang={lang} minHeight={160}>
+              {() => (anns.data && anns.data.length) ?
+              <AnnouncementList lang={lang} items={anns.data.slice(0, 4)} navigate={navigate} /> :
+              <EmptyState icon="bell" title={t('an_empty')} />}
+            </ApiState>
           </div>
         </div>
       </section>
@@ -253,6 +303,9 @@ function HomeA({ lang, navigate }) {
 // ================== PHƯƠNG ÁN B — Hero chia đôi với bản đồ ==================
 function HomeB({ lang, navigate }) {
   const t = useT(lang);
+  const points = useApiData((signal) => API.getServicePoints({ signal }), []);
+  const anns = useApiData((signal) => API.getAnnouncements('all', { signal }), []);
+  const pointList = points.data || [];
   const qa = [
   { icon: 'fileplus', key: 'qa_submit', route: 'requests/create' },
   { icon: 'filesearch', key: 'qa_track', route: 'track' },
@@ -284,10 +337,10 @@ function HomeB({ lang, navigate }) {
             </div>
           </div>
           <div className="card" style={{ overflow: 'hidden', boxShadow: 'var(--shadow-lg)' }}>
-            <OsmMap height={430} points={window.DATA.servicePoints} radius="0" onMarkerClick={(p) => navigate('points/' + p.id)} />
+            <OsmMap height={430} points={pointList} radius="0" onMarkerClick={(p) => navigate('points/' + p.id)} />
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 18px', gap: 12 }}>
               <span style={{ fontSize: 'var(--fs-13)', color: 'var(--ink-3)', display: 'flex', alignItems: 'center', gap: 7 }}>
-                <Icon name="mappin" size={15} style={{ color: 'var(--primary)' }} />{window.DATA.servicePoints.length} {t('stat_points')} · {t('city')}
+                <Icon name="mappin" size={15} style={{ color: 'var(--primary)' }} />{pointList.length} {t('stat_points')} · {t('city')}
               </span>
               <button className="btn btn-ghost btn-sm" onClick={() => navigate('points')} style={{ color: 'var(--primary)', fontWeight: 700 }}>
                 {t('open_map')} <Icon name="chevronright" size={14} />
@@ -307,7 +360,11 @@ function HomeB({ lang, navigate }) {
           <a href="#/announcements" onClick={(e) => {e.preventDefault();navigate('announcements');}} style={{ fontWeight: 600, fontSize: 'var(--fs-14)' }}>{t('view_all')}</a>
         </div>
         <div className="card" style={{ padding: '8px 22px' }}>
-          <AnnouncementList lang={lang} items={window.DATA.announcements} navigate={navigate} />
+          <ApiState loading={anns.loading} error={anns.error} reload={anns.reload} lang={lang} minHeight={160}>
+            {() => (anns.data && anns.data.length) ?
+            <AnnouncementList lang={lang} items={anns.data} navigate={navigate} /> :
+            <EmptyState icon="bell" title={t('an_empty')} />}
+          </ApiState>
         </div>
       </section>
 
@@ -324,7 +381,8 @@ const AN_TAG_LABEL = { thongbao: { vi: 'Thông báo', en: 'Notice' }, huongdan: 
 function AnnouncementsScreen({ lang, navigate }) {
   const t = useT(lang);
   const [tag, setTag] = React.useState('all');
-  const items = window.DATA.announcements.filter((a) => tag === 'all' || a.tag === tag);
+  const { data, loading, error, reload } = useApiData((signal) => API.getAnnouncements(tag, { signal }), [tag]);
+  const items = data || [];
   return (
     <main style={{ minHeight: '70vh' }}>
       <PageHead lang={lang} navigate={navigate}
@@ -343,21 +401,25 @@ function AnnouncementsScreen({ lang, navigate }) {
             </button>
           ))}
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 820 }}>
-          {items.map((a) => (
-            <button key={a.id} onClick={() => navigate('announcements/' + a.id)} className="card card-hover"
-              style={{ padding: '20px 24px', background: '#fff', textAlign: 'left', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 9, width: '100%' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <Badge tone={AN_TAG_TONE[a.tag]} dot={false}>{pick(AN_TAG_LABEL[a.tag], lang)}</Badge>
-                <span style={{ fontSize: 'var(--fs-13)', color: 'var(--ink-4)' }}>{a.date}</span>
-              </span>
-              <strong style={{ fontSize: 'var(--fs-16)', lineHeight: 1.45 }}>{pick(a, lang)}</strong>
-              <span style={{ fontSize: 'var(--fs-14)', color: 'var(--ink-3)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.6 }}>
-                {(lang === 'en' ? a.bodyEn : a.bodyVi).split('\n')[0]}
-              </span>
-            </button>
-          ))}
-        </div>
+        <ApiState loading={loading} error={error} reload={reload} lang={lang} minHeight={220}>
+          {() => items.length ?
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 820 }}>
+            {items.map((a) => (
+              <button key={a.id} onClick={() => navigate('announcements/' + a.id)} className="card card-hover"
+                style={{ padding: '20px 24px', background: '#fff', textAlign: 'left', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 9, width: '100%' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <Badge tone={AN_TAG_TONE[a.tag]} dot={false}>{pick(AN_TAG_LABEL[a.tag], lang)}</Badge>
+                  <span style={{ fontSize: 'var(--fs-13)', color: 'var(--ink-4)' }}>{a.date}</span>
+                </span>
+                <strong style={{ fontSize: 'var(--fs-16)', lineHeight: 1.45 }}>{pick(a, lang)}</strong>
+                <span style={{ fontSize: 'var(--fs-14)', color: 'var(--ink-3)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.6 }}>
+                  {(lang === 'en' ? a.bodyEn : a.bodyVi).split('\n')[0]}
+                </span>
+              </button>
+            ))}
+          </div> :
+          <EmptyState icon="bell" title={t('an_empty')} />}
+        </ApiState>
       </div>
     </main>
   );
@@ -365,7 +427,26 @@ function AnnouncementsScreen({ lang, navigate }) {
 
 function AnnouncementDetail({ lang, navigate, announceId }) {
   const t = useT(lang);
-  const a = window.DATA.announcements.find((x) => x.id === announceId) || window.DATA.announcements[0];
+  const { data: a, loading, error, reload } = useApiData((signal) => API.getAnnouncement(announceId, { signal }), [announceId]);
+  if (loading || error || !a) {
+    return (
+      <main style={{ minHeight: '70vh' }}>
+        <PageHead lang={lang} navigate={navigate}
+          crumbs={[{ label: t('announcements_title'), route: 'announcements' }]}
+          title={t('announcements_title')}/>
+        <div className="container" style={{ marginBottom: 24 }}>
+          {loading ?
+          <ApiState loading lang={lang} minHeight={200} /> :
+          <div style={{ display: 'grid', placeItems: 'center', gap: 14, padding: '36px 0', textAlign: 'center' }}>
+            <EmptyState icon="alert" title={error ? t('load_error') : t('an_not_found')} />
+            {error && <button className="btn btn-soft btn-sm" onClick={reload}><Icon name="navigation" size={14} />{t('retry')}</button>}
+          </div>}
+          <button className="btn btn-secondary" style={{ marginTop: 22 }} onClick={() => navigate('announcements')}>
+            <Icon name="arrowleft" size={16}/>{t('back')}
+          </button>
+        </div>
+      </main>);
+  }
   const body = (lang === 'en' ? a.bodyEn : a.bodyVi) || '';
   return (
     <main style={{ minHeight: '70vh' }}>

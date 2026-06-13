@@ -15,8 +15,11 @@ public sealed class ManageRequestsController : ControllerBase
     public ManageRequestsController(RequestService requests) => _requests = requests;
 
     [HttpGet]
-    public async Task<IActionResult> List([FromQuery] ServiceRequestStatus? status, [FromQuery] Guid? assignedOfficerId, CancellationToken ct)
-        => Ok(await _requests.ListForOfficerAsync(status, assignedOfficerId, ct));
+    public async Task<IActionResult> List(
+        [FromQuery] ServiceRequestStatus? status, [FromQuery] Guid? assignedOfficerId,
+        [FromQuery] Guid? publicServiceId, [FromQuery] Guid? servicePointId,
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default)
+        => Ok(await _requests.ListForOfficerAsync(status, assignedOfficerId, publicServiceId, servicePointId, page, pageSize, ct));
 
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> Get(Guid id, CancellationToken ct)
@@ -29,6 +32,15 @@ public sealed class ManageRequestsController : ControllerBase
     [HttpPost("{id:guid}/status")]
     public async Task<IActionResult> ChangeStatus(Guid id, [FromBody] ChangeRequestStatusDto dto, CancellationToken ct)
         => Ok(await _requests.ChangeStatusAsync(id, dto, ct));
+
+    [HttpPost("{id:guid}/comments")]
+    public async Task<IActionResult> AddComment(Guid id, [FromBody] AddRequestCommentDto dto, CancellationToken ct)
+        => Ok(await _requests.AddCommentAsync(id, dto, ct));
+
+    /// <summary>Officer attaches a result/processing document to a request.</summary>
+    [HttpPost("{id:guid}/documents")]
+    public async Task<IActionResult> AddDocument(Guid id, [FromBody] AddRequestDocumentDto dto, CancellationToken ct)
+        => Ok(await _requests.AddDocumentAsync(id, dto, ct));
 
     /// <summary>Shortcut to move a request to WAITING_SUPPLEMENT.</summary>
     [HttpPost("{id:guid}/request-supplement")]

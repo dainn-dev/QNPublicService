@@ -3,7 +3,7 @@
 // Cần: components.jsx, officer/shell.jsx (Modal, Toast)
 // ============================================================
 
-function AdminShell({ lang, setLang, route, navigate, children }) {
+function AdminShell({ lang, setLang, route, navigate, children, onLogout }) {
   const t = useT(lang);
   const [navOpen, setNavOpen] = React.useState(false);
   const me = window.ADATA.me;
@@ -50,10 +50,15 @@ function AdminShell({ lang, setLang, route, navigate, children }) {
           </a>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px' }}>
             <span style={{ width: 34, height: 34, borderRadius: '50%', background: 'var(--primary)', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 13, flex: 'none' }}>{me.initials}</span>
-            <span style={{ lineHeight: 1.25, minWidth: 0 }}>
+            <span style={{ lineHeight: 1.25, minWidth: 0, flex: 1 }}>
               <strong style={{ display: 'block', color: '#fff', fontSize: 'var(--fs-13)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{me.name}</strong>
               <span style={{ fontSize: 'var(--fs-12)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>{pick(me.role, lang)}</span>
             </span>
+            {onLogout &&
+              <button onClick={onLogout} title={t('logout')} aria-label={t('logout')}
+                style={{ flex: 'none', border: 'none', background: 'rgba(255,255,255,0.08)', borderRadius: 'var(--r-sm)', width: 32, height: 32, display: 'grid', placeItems: 'center', color: '#A8A29E', cursor: 'pointer' }}>
+                <Icon name="external" size={16} />
+              </button>}
           </div>
         </div>
       </aside>

@@ -1,3 +1,4 @@
+using DVC.Application.Common;
 using DVC.Application.Features.Audit;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -13,9 +14,31 @@ public sealed class AuditController : ControllerBase
 
     public AuditController(AuditService audit) => _audit = audit;
 
+    /// <summary>Paged audit log with filters: entity type, actor, action, date range and free-text search.</summary>
     [HttpGet]
+    [ProducesResponseType(typeof(PagedResult<AuditLogDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> List(
         [FromQuery] int page = 1, [FromQuery] int pageSize = 50,
-        [FromQuery] string? entityType = null, [FromQuery] Guid? actorUserId = null, CancellationToken ct = default)
-        => Ok(await _audit.GetAsync(page, pageSize, entityType, actorUserId, ct));
+        [FromQuery] string? entityType = null, [FromQuery] Guid? actorUserId = null,
+        [FromQuery] string? action = null, [FromQuery] DateOnly? from = null,
+        [FromQuery] DateOnly? to = null, [FromQuery] string? search = null,
+        CancellationToken ct = default)
+        => Ok(await _audit.GetAsync(
+            new AuditLogQuery(page, pageSize, entityType, actorUserId, action, from, to, search), ct));
+
+    /// <summary>Exports the filtered audit log (same filters as the list) as a CSV file.</summary>
+    [HttpGet("export")]
+    [Produces("text/csv")]
+    public async Task<IActionResult> Export(
+        [FromQuery] string? entityType = null, [FromQuery] Guid? actorUserId = null,
+        [FromQuery] string? action = null, [FromQuery] DateOnly? from = null,
+        [FromQuery] DateOnly? to = null, [FromQuery] string? search = null,
+        CancellationToken ct = default)
+    {
+        var query = new AuditLogQuery(EntityType: entityType, ActorUserId: actorUserId, Action: action,
+            From: from, To: to, Search: search);
+        var csv = await _audit.ExportCsvAsync(query, ct);
+        var fileName = $"audit-logs-{DateTime.UtcNow:yyyyMMdd-HHmmss}.csv";
+        return File(csv, "text/csv; charset=utf-8", fileName);
+    }
 }

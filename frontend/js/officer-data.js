@@ -62,8 +62,23 @@ Object.assign(window.I18N.vi, {
   act_send: 'Gửi',
   act_save: 'Lưu thay đổi',
   act_respond_citizen: 'Phản hồi người dân',
+  act_take_mine: 'Nhận về mình',
+
+  // Tài liệu đính kèm (đính kèm theo URL)
+  dt_attached_docs: 'Tài liệu đã đính kèm',
+  doc_attach: 'Đính kèm tài liệu',
+  doc_attach_ph: 'Dán liên kết tài liệu…',
+  doc_filename_ph: 'Tên tài liệu (tuỳ chọn)',
+  doc_add: 'Đính kèm',
+  doc_open: 'Mở',
+  doc_supplement: 'Bổ sung',
+
+  // Lỗi
+  err_status_change: 'Không thể chuyển sang trạng thái này.',
+  err_save: 'Không thể lưu thay đổi. Vui lòng thử lại.',
 
   // Ưu tiên
+  pr_urgent: 'Khẩn cấp',
   pr_high: 'Cao',
   pr_medium: 'Trung bình',
   pr_low: 'Thấp',
@@ -87,9 +102,29 @@ Object.assign(window.I18N.vi, {
   op_notif_assigned_req: 'Hồ sơ được phân công',
   op_notif_assigned_fb: 'Phản ánh được phân công',
   op_notif_due: 'Sắp đến hạn',
+  op_notif_announcement: 'Thông báo chung',
+  op_notif_system: 'Hệ thống',
+  op_notif_emergency: 'Khẩn cấp',
+  op_notif_empty: 'Chưa có thông báo nào',
   results: 'kết quả',
   all: 'Tất cả',
   logout: 'Đăng xuất',
+
+  // Đăng nhập cán bộ
+  op_login_title: 'Đăng nhập Cổng cán bộ',
+  op_login_sub: 'Dành cho cán bộ, công chức xử lý hồ sơ và phản ánh.',
+  op_login_email: 'Email',
+  op_login_email_ph: 'ten@quangngai.gov.vn',
+  op_login_password: 'Mật khẩu',
+  op_login_password_ph: 'Nhập mật khẩu',
+  op_login_submit: 'Đăng nhập',
+  op_login_signing: 'Đang đăng nhập…',
+  op_login_checking: 'Đang kiểm tra phiên đăng nhập…',
+  op_login_err_credentials: 'Email hoặc mật khẩu không đúng.',
+  op_login_err_forbidden: 'Tài khoản này không có quyền truy cập Cổng cán bộ.',
+  op_login_err_generic: 'Không thể đăng nhập. Vui lòng thử lại.',
+  op_login_required: 'Vui lòng nhập email và mật khẩu.',
+  op_login_back_citizen: 'Về Cổng công dân',
 });
 
 Object.assign(window.I18N.en, {
@@ -146,7 +181,22 @@ Object.assign(window.I18N.en, {
   act_send: 'Send',
   act_save: 'Save changes',
   act_respond_citizen: 'Respond to citizen',
+  act_take_mine: 'Assign to me',
 
+  // Attached documents (attach by URL)
+  dt_attached_docs: 'Attached documents',
+  doc_attach: 'Attach document',
+  doc_attach_ph: 'Paste a document link…',
+  doc_filename_ph: 'File name (optional)',
+  doc_add: 'Attach',
+  doc_open: 'Open',
+  doc_supplement: 'Supplement',
+
+  // Errors
+  err_status_change: 'Cannot move to this status.',
+  err_save: 'Could not save changes. Please try again.',
+
+  pr_urgent: 'Urgent',
   pr_high: 'High',
   pr_medium: 'Medium',
   pr_low: 'Low',
@@ -169,9 +219,29 @@ Object.assign(window.I18N.en, {
   op_notif_assigned_req: 'Request assigned',
   op_notif_assigned_fb: 'Feedback assigned',
   op_notif_due: 'Due soon',
+  op_notif_announcement: 'Announcement',
+  op_notif_system: 'System',
+  op_notif_emergency: 'Emergency',
+  op_notif_empty: 'No notifications yet',
   results: 'results',
   all: 'All',
   logout: 'Sign out',
+
+  // Officer sign-in
+  op_login_title: 'Officer Portal sign-in',
+  op_login_sub: 'For officers handling applications and citizen reports.',
+  op_login_email: 'Email',
+  op_login_email_ph: 'name@quangngai.gov.vn',
+  op_login_password: 'Password',
+  op_login_password_ph: 'Enter your password',
+  op_login_submit: 'Sign in',
+  op_login_signing: 'Signing in…',
+  op_login_checking: 'Checking your session…',
+  op_login_err_credentials: 'Incorrect email or password.',
+  op_login_err_forbidden: 'This account is not allowed to access the Officer Portal.',
+  op_login_err_generic: 'Could not sign in. Please try again.',
+  op_login_required: 'Please enter your email and password.',
+  op_login_back_citizen: 'Back to Citizen Portal',
 });
 
 // ---- Cán bộ ----
@@ -293,6 +363,7 @@ window.ODATA = {
 };
 
 window.PRIORITY_META = {
+  urgent: { labelKey: 'pr_urgent', tone: 'danger' },
   high:   { labelKey: 'pr_high',   tone: 'danger' },
   medium: { labelKey: 'pr_medium', tone: 'warning' },
   low:    { labelKey: 'pr_low',    tone: 'neutral' },

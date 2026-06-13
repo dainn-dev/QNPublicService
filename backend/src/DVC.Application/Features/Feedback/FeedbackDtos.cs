@@ -4,12 +4,15 @@ namespace DVC.Application.Features.Feedback;
 
 public sealed record FeedbackCategoryDto(Guid Id, string Code, string Name, bool IsActive);
 
+public sealed record CreateFeedbackCategoryDto(string Code, string Name);
+public sealed record UpdateFeedbackCategoryDto(string Name, bool IsActive);
+
 public sealed record FeedbackAttachmentDto(Guid Id, string Url, string? FileName, string? ContentType);
-public sealed record FeedbackCommentDto(Guid Id, Guid AuthorId, string Content, bool IsInternal, DateTime CreatedAt);
-public sealed record FeedbackHistoryDto(FeedbackStatus? FromStatus, FeedbackStatus ToStatus, Guid? ChangedById, string? Note, DateTime ChangedAt);
+public sealed record FeedbackCommentDto(Guid Id, Guid AuthorId, string AuthorName, string Content, bool IsInternal, DateTime CreatedAt);
+public sealed record FeedbackHistoryDto(FeedbackStatus? FromStatus, FeedbackStatus ToStatus, Guid? ChangedById, string ChangedByName, string? Note, DateTime ChangedAt);
 
 public sealed record FeedbackReportDto(
-    Guid Id, string Code, Guid CategoryId, Guid CitizenId, string Title, string Description,
+    Guid Id, string Code, Guid CategoryId, Guid CitizenId, string CitizenName, string? CitizenPhone, string Title, string Description,
     string? Address, decimal? Latitude, decimal? Longitude, int? ProvinceCode, int? WardCode,
     FeedbackStatus Status, FeedbackPriority Priority, Guid? AssignedOfficerId,
     DateTime SubmittedAt, DateTime? DueAt, DateTime? ResolvedAt, DateTime? ClosedAt,

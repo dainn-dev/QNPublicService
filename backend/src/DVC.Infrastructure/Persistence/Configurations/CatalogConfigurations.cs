@@ -13,6 +13,7 @@ public sealed class ServiceCategoryConfiguration : IEntityTypeConfiguration<Serv
         b.Property(x => x.Code).HasMaxLength(50).IsRequired();
         b.HasIndex(x => x.Code).IsUnique();
         b.Property(x => x.Name).HasMaxLength(255).IsRequired();
+        b.Property(x => x.NameEn).HasMaxLength(255);
         b.HasOne(x => x.Parent).WithMany().HasForeignKey(x => x.ParentId).OnDelete(DeleteBehavior.Restrict);
         b.HasMany(x => x.Services).WithOne(x => x.Category!).HasForeignKey(x => x.CategoryId).OnDelete(DeleteBehavior.Restrict);
     }
@@ -27,6 +28,7 @@ public sealed class PublicServiceConfiguration : IEntityTypeConfiguration<Public
         b.Property(x => x.Code).HasMaxLength(50).IsRequired();
         b.HasIndex(x => x.Code).IsUnique();
         b.Property(x => x.Name).HasMaxLength(255).IsRequired();
+        b.Property(x => x.NameEn).HasMaxLength(255);
         b.Property(x => x.Fee).HasColumnType("numeric(18,2)");
         b.Property(x => x.ServiceLevel).HasConversion<string>().HasMaxLength(30);
         b.HasIndex(x => x.CategoryId);

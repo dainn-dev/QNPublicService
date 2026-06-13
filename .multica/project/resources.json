@@ -1,0 +1,15 @@
+{
+  "project_id": "60c91765-aa44-45b9-94d5-fd6ef598295b",
+  "project_title": "GCSP",
+  "resources": [
+    {
+      "id": "e182d466-5a42-4e54-8627-28ac1de0d3ec",
+      "resource_type": "local_directory",
+      "resource_ref": {
+        "label": "BDMap",
+        "daemon_id": "019eb13f-9e86-72e8-a3b9-6ee79c818eee",
+        "local_path": "C:\\Users\\hoang\\Projects\\BDMap"
+      }
+    }
+  ]
+}

@@ -18,7 +18,7 @@ function adParseHash() {
   return raw.split('?')[0] || 'users';
 }
 
-function AdminApp() {
+function AdminApp({ onLogout }) {
   const [tw, setTweak] = useTweaks(AD_TWEAK_DEFAULTS);
   const [lang, setLang] = React.useState(() => localStorage.getItem('qng-portal-lang') || 'vi');
   const [path, setPath] = React.useState(adParseHash());
@@ -27,7 +27,6 @@ function AdminApp() {
 
   const [users, setUsers] = React.useState(window.ADATA.users);
   const [officers, setOfficers] = React.useState(window.ADATA.officerProfiles);
-  const [points, setPoints] = React.useState(window.DATA.servicePoints);
 
   const showToast = (msg) => {
     setToast(msg);
@@ -66,7 +65,7 @@ function AdminApp() {
   if (path === 'users') screen = <AdminUsers lang={lang} users={users} setUsers={setUsers} showToast={showToast} />;else
   if (path === 'officers') screen = <AdminOfficers lang={lang} officers={officers} setOfficers={setOfficers} showToast={showToast} />;else
   if (path === 'services') screen = <AdminServices lang={lang} showToast={showToast} />;else
-  if (path === 'points') screen = <AdminServicePoints lang={lang} points={points} setPoints={setPoints} showToast={showToast} />;else
+  if (path === 'points') screen = <AdminServicePoints lang={lang} showToast={showToast} />;else
   if (path === 'catalogs') screen = <AdminCatalogs lang={lang} showToast={showToast} />;else
   if (path === 'notifications') screen = <AdminNotifications lang={lang} showToast={showToast} />;else
   if (path === 'audit') screen = <AdminAudit lang={lang} showToast={showToast} />;else
@@ -74,7 +73,7 @@ function AdminApp() {
 
   return (
     <React.Fragment>
-      <AdminShell lang={lang} setLang={setLang} route={path} navigate={navigate}>
+      <AdminShell lang={lang} setLang={setLang} route={path} navigate={navigate} onLogout={onLogout}>
         <div key={path} className="fade-up">{screen}</div>
       </AdminShell>
       <Toast message={toast} />
@@ -90,4 +89,4 @@ function AdminApp() {
 
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<AdminApp />);
+ReactDOM.createRoot(document.getElementById('root')).render(<AdminRoot />);

@@ -19,7 +19,17 @@ public class ServiceRequest : BaseEntity, IAuditableEntity
     public DateTime? CompletedAt { get; set; }
 
     public ICollection<ServiceRequestDocument> Documents { get; set; } = new List<ServiceRequestDocument>();
+    public ICollection<ServiceRequestComment> Comments { get; set; } = new List<ServiceRequestComment>();
     public ICollection<ServiceRequestStatusHistory> StatusHistory { get; set; } = new List<ServiceRequestStatusHistory>();
+}
+
+public class ServiceRequestComment : BaseEntity
+{
+    public Guid ServiceRequestId { get; set; }
+    public Guid AuthorId { get; set; }               // DainnUser Users.Id
+    public string Content { get; set; } = string.Empty;
+    public bool IsInternal { get; set; }             // officer-only note vs citizen-visible response
+    public ServiceRequest? ServiceRequest { get; set; }
 }
 
 public class ServiceRequestDocument : BaseEntity

@@ -1,4 +1,5 @@
 using DVC.Application.Abstractions;
+using DVC.Domain.Announcements;
 using DVC.Domain.Audit;
 using DVC.Domain.Catalog;
 using DVC.Domain.Common;
@@ -30,18 +31,22 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<ServicePointService> ServicePointServices => Set<ServicePointService>();
     public DbSet<ServicePointImage> ServicePointImages => Set<ServicePointImage>();
     public DbSet<OfficerProfile> OfficerProfiles => Set<OfficerProfile>();
+    public DbSet<UserProfile> UserProfiles => Set<UserProfile>();
     public DbSet<FeedbackCategory> FeedbackCategories => Set<FeedbackCategory>();
     public DbSet<FeedbackReport> FeedbackReports => Set<FeedbackReport>();
     public DbSet<FeedbackAttachment> FeedbackAttachments => Set<FeedbackAttachment>();
     public DbSet<FeedbackComment> FeedbackComments => Set<FeedbackComment>();
     public DbSet<FeedbackStatusHistory> FeedbackStatusHistory => Set<FeedbackStatusHistory>();
     public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<NotificationCampaign> NotificationCampaigns => Set<NotificationCampaign>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<ServiceRequest> ServiceRequests => Set<ServiceRequest>();
     public DbSet<ServiceRequestDocument> ServiceRequestDocuments => Set<ServiceRequestDocument>();
+    public DbSet<ServiceRequestComment> ServiceRequestComments => Set<ServiceRequestComment>();
     public DbSet<ServiceRequestStatusHistory> ServiceRequestStatusHistory => Set<ServiceRequestStatusHistory>();
     public DbSet<ServicePointRating> ServicePointRatings => Set<ServicePointRating>();
     public DbSet<ServiceRequestRating> ServiceRequestRatings => Set<ServiceRequestRating>();
+    public DbSet<Announcement> Announcements => Set<Announcement>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

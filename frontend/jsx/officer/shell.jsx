@@ -2,8 +2,9 @@
 // Cổng cán bộ — Shell (sidebar + topbar) và thành phần dùng chung
 // ============================================================
 
-function OfficerAvatar({ officerId, size = 30 }) {
-  const o = officerId && window.ODATA.officers.find((x) => x.id === officerId);
+function OfficerAvatar({ officerId, size = 30, officers }) {
+  const dir = officers || window.ODATA.officers;
+  const o = officerId && dir.find((x) => x.id === officerId);
   if (!o) return null;
   return (
     <span title={o.name} style={{ width: size, height: size, borderRadius: '50%', background: 'var(--primary-soft-2)', color: 'var(--primary)', display: 'inline-grid', placeItems: 'center', fontWeight: 700, fontSize: size * 0.38, flex: 'none' }}>
@@ -12,13 +13,14 @@ function OfficerAvatar({ officerId, size = 30 }) {
 
 }
 
-function OfficerCell({ officerId, lang }) {
+function OfficerCell({ officerId, lang, officers }) {
   const t = useT(lang);
-  const o = officerId && window.ODATA.officers.find((x) => x.id === officerId);
+  const dir = officers || window.ODATA.officers;
+  const o = officerId && dir.find((x) => x.id === officerId);
   if (!o) return <span style={{ color: 'var(--ink-4)', fontSize: 'var(--fs-13)', fontStyle: 'italic' }}>{t('unassigned')}</span>;
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-      <OfficerAvatar officerId={officerId} size={26} />
+      <OfficerAvatar officerId={officerId} size={26} officers={dir} />
       <span style={{ fontSize: 'var(--fs-13)', fontWeight: 600 }}>{o.name}</span>
     </span>);
 
@@ -31,12 +33,36 @@ function DueBadge({ dueState, due, lang }) {
   return <span style={{ color: 'var(--ink-3)', fontSize: 'var(--fs-13)' }}>{due}</span>;
 }
 
-// ---------- Chuông thông báo (hồ sơ / phản ánh được phân công) ----------
+// ---------- Trạng thái tải API dùng chung (loading / lỗi + Thử lại) ----------
+function OpApiState({ loading, error, reload, lang, minHeight = 120, children }) {
+  const t = useT(lang);
+  if (loading) {
+    return (
+      <div style={{ display: 'grid', placeItems: 'center', gap: 10, minHeight, color: 'var(--ink-3)' }}>
+        <span className="op-spin" style={{ width: 22, height: 22, border: '2.5px solid var(--line)', borderTopColor: 'var(--primary)', borderRadius: '50%', display: 'inline-block' }}></span>
+        <span style={{ fontSize: 'var(--fs-14)' }}>{t('loading')}</span>
+        <style>{`@keyframes op-spin{to{transform:rotate(360deg)}} .op-spin{animation:op-spin .7s linear infinite}`}</style>
+      </div>);
+  }
+  if (error) {
+    return (
+      <div style={{ display: 'grid', placeItems: 'center', gap: 10, minHeight, color: 'var(--ink-3)', textAlign: 'center' }}>
+        <Icon name="alert" size={22} style={{ color: 'var(--danger)' }} />
+        <span style={{ fontSize: 'var(--fs-14)' }}>{t('load_error')}</span>
+        {reload && <button className="btn btn-soft btn-sm" onClick={reload}><Icon name="navigation" size={14} />{t('retry')}</button>}
+      </div>);
+  }
+  return children;
+}
+
+// ---------- Chuông thông báo (đọc từ /api/notifications) ----------
 function OfficerNotifBell({ lang, navigate }) {
   const t = useT(lang);
   const [open, setOpen] = React.useState(false);
-  const [items, setItems] = React.useState(window.ODATA.officerNotifications);
   const ref = React.useRef(null);
+  const { data, loading, error, reload } = useApiData((signal) => window.API.notifications.list(false, { signal }), []);
+  const [items, setItems] = React.useState([]);
+  React.useEffect(() => { setItems(data || []); }, [data]);
   const unread = items.filter((n) => !n.read).length;
 
   React.useEffect(() => {
@@ -46,15 +72,32 @@ function OfficerNotifBell({ lang, navigate }) {
     return () => document.removeEventListener('mousedown', close);
   }, [open]);
 
+  // Loại thông báo → icon/tông màu + nhãn ngắn.
   const kindMeta = {
     request: { icon: 'doc', tone: 'info', labelKey: 'op_notif_assigned_req' },
     feedback: { icon: 'megaphone', tone: 'warning', labelKey: 'op_notif_assigned_fb' },
-    due: { icon: 'alert', tone: 'danger', labelKey: 'op_notif_due' }
+    due: { icon: 'alert', tone: 'danger', labelKey: 'op_notif_due' },
+    announcement: { icon: 'megaphone', tone: 'info', labelKey: 'op_notif_announcement' },
+    system: { icon: 'bell', tone: 'neutral', labelKey: 'op_notif_system' },
+    emergency: { icon: 'alert', tone: 'danger', labelKey: 'op_notif_emergency' },
+  };
+  const meta = (n) => kindMeta[n.kind] || kindMeta.system;
+
+  // Đánh dấu đã đọc lạc quan + gọi API (bỏ qua lỗi mạng, không chặn UI).
+  const markRead = (n) => {
+    if (n.read) return;
+    setItems((xs) => xs.map((x) => x.id === n.id ? { ...x, read: true } : x));
+    window.API.notifications.markRead(n.id).catch(() => {});
+  };
+  const markAll = () => {
+    if (!unread) return;
+    setItems((xs) => xs.map((x) => ({ ...x, read: true })));
+    window.API.notifications.markAllRead().catch(() => {});
   };
   const go = (n) => {
-    setItems(items.map((x) => x.id === n.id ? { ...x, read: true } : x));
+    markRead(n);
     setOpen(false);
-    navigate((n.kind === 'feedback' ? 'feedback/' : 'requests/') + n.refId);
+    if (n.refRoute && n.refId) navigate(n.refRoute + '/' + n.refId);
   };
 
   return (
@@ -68,29 +111,35 @@ function OfficerNotifBell({ lang, navigate }) {
       <div className="fade-up" style={{ position: 'absolute', right: 0, top: 'calc(100% + 8px)', zIndex: 1200, background: '#fff', border: '1px solid var(--line)', borderRadius: 'var(--r-lg)', boxShadow: 'var(--shadow-pop)', width: 380, maxWidth: 'calc(100vw - 32px)', overflow: 'hidden' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px 10px' }}>
             <strong style={{ fontSize: 'var(--fs-15)' }}>{t('op_notif_title')}{unread > 0 && <span style={{ color: 'var(--primary)', fontSize: 'var(--fs-13)', fontWeight: 700 }}> · {unread} {t('notif_unread')}</span>}</strong>
-            <button onClick={() => setItems(items.map((x) => ({ ...x, read: true })))}
-          style={{ border: 'none', background: 'none', color: 'var(--primary)', fontWeight: 600, fontSize: 'var(--fs-12)', cursor: 'pointer', padding: 4 }}>
+            <button onClick={markAll} disabled={!unread}
+          style={{ border: 'none', background: 'none', color: unread ? 'var(--primary)' : 'var(--ink-4)', fontWeight: 600, fontSize: 'var(--fs-12)', cursor: unread ? 'pointer' : 'default', padding: 4 }}>
               {t('notif_mark_all')}
             </button>
           </div>
           <div style={{ maxHeight: 380, overflowY: 'auto' }}>
-            {items.map((n, i) => {
-            const meta = kindMeta[n.kind];
-            return (
-              <button key={n.id} onClick={() => go(n)}
-              style={{ display: 'flex', gap: 12, width: '100%', textAlign: 'left', border: 'none', borderTop: '1px solid var(--line-soft)', background: n.read ? '#fff' : 'var(--primary-soft)', padding: '12px 18px', cursor: 'pointer', alignItems: 'flex-start' }}>
-                  <span style={{ width: 34, height: 34, borderRadius: 10, flex: 'none', display: 'grid', placeItems: 'center', background: `var(--${meta.tone}-soft)`, color: `var(--${meta.tone})`, border: `1px solid var(--${meta.tone}-border)` }}>
-                    <Icon name={meta.icon} size={16} />
-                  </span>
-                  <span style={{ flex: 1, minWidth: 0 }}>
-                    <span style={{ display: 'block', fontSize: 'var(--fs-12)', fontWeight: 700, color: `var(--${meta.tone})`, textTransform: 'uppercase', letterSpacing: '0.03em' }}>{t(meta.labelKey)}</span>
-                    <span style={{ display: 'block', fontSize: 'var(--fs-13)', fontWeight: n.read ? 500 : 700, lineHeight: 1.5, marginTop: 2, color: 'var(--ink)' }}>{lang === 'en' ? n.en : n.vi}</span>
-                    <span style={{ fontSize: 'var(--fs-12)', color: 'var(--ink-4)' }}>{n.at}</span>
-                  </span>
-                  {!n.read && <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--primary)', flex: 'none', marginTop: 6 }}></span>}
-                </button>);
-
-          })}
+            <OpApiState loading={loading} error={error} reload={reload} lang={lang} minHeight={140}>
+              {items.length === 0
+                ? <div style={{ display: 'grid', placeItems: 'center', gap: 8, padding: '32px 18px', color: 'var(--ink-4)' }}>
+                    <Icon name="bell" size={22} /><span style={{ fontSize: 'var(--fs-13)' }}>{t('op_notif_empty')}</span>
+                  </div>
+                : items.map((n) => {
+                  const m = meta(n);
+                  const clickable = !!(n.refRoute && n.refId);
+                  return (
+                    <button key={n.id} onClick={() => go(n)}
+                    style={{ display: 'flex', gap: 12, width: '100%', textAlign: 'left', border: 'none', borderTop: '1px solid var(--line-soft)', background: n.read ? '#fff' : 'var(--primary-soft)', padding: '12px 18px', cursor: clickable ? 'pointer' : 'default', alignItems: 'flex-start' }}>
+                      <span style={{ width: 34, height: 34, borderRadius: 10, flex: 'none', display: 'grid', placeItems: 'center', background: `var(--${m.tone}-soft)`, color: `var(--${m.tone})`, border: `1px solid var(--${m.tone}-border)` }}>
+                        <Icon name={m.icon} size={16} />
+                      </span>
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ display: 'block', fontSize: 'var(--fs-12)', fontWeight: 700, color: `var(--${m.tone})`, textTransform: 'uppercase', letterSpacing: '0.03em' }}>{t(m.labelKey)}</span>
+                        <span style={{ display: 'block', fontSize: 'var(--fs-13)', fontWeight: n.read ? 500 : 700, lineHeight: 1.5, marginTop: 2, color: 'var(--ink)' }}>{n.text}</span>
+                        <span style={{ fontSize: 'var(--fs-12)', color: 'var(--ink-4)' }}>{n.at}</span>
+                      </span>
+                      {!n.read && <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--primary)', flex: 'none', marginTop: 6 }}></span>}
+                    </button>);
+                })}
+            </OpApiState>
           </div>
         </div>
       }
@@ -99,7 +148,7 @@ function OfficerNotifBell({ lang, navigate }) {
 }
 
 // ---------- Shell ----------
-function OfficerShell({ lang, setLang, route, navigate, children }) {
+function OfficerShell({ lang, setLang, route, navigate, children, onLogout }) {
   const t = useT(lang);
   const [navOpen, setNavOpen] = React.useState(false);
   const me = window.ODATA.me;
@@ -139,10 +188,15 @@ function OfficerShell({ lang, setLang, route, navigate, children }) {
           </a>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px' }}>
             <span style={{ width: 34, height: 34, borderRadius: '50%', background: 'var(--primary)', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 13, flex: 'none' }}>{me.initials}</span>
-            <span style={{ lineHeight: 1.25, minWidth: 0 }}>
+            <span style={{ lineHeight: 1.25, minWidth: 0, flex: 1 }}>
               <strong style={{ display: 'block', color: '#fff', fontSize: 'var(--fs-13)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{me.name}</strong>
               <span style={{ fontSize: 'var(--fs-12)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>{pick(me.role, lang)}</span>
             </span>
+            {onLogout &&
+              <button onClick={onLogout} title={t('logout')} aria-label={t('logout')}
+                style={{ flex: 'none', border: 'none', background: 'rgba(255,255,255,0.08)', borderRadius: 'var(--r-sm)', width: 32, height: 32, display: 'grid', placeItems: 'center', color: '#A8A29E', cursor: 'pointer' }}>
+                <Icon name="external" size={16} />
+              </button>}
           </div>
         </div>
       </aside>
@@ -280,4 +334,4 @@ function Toast({ message }) {
 
 }
 
-Object.assign(window, { OfficerShell, OfficerAvatar, OfficerCell, DueBadge, Modal, Toast, OfficerNotifBell, Pagination, usePagination });
+Object.assign(window, { OfficerShell, OfficerAvatar, OfficerCell, DueBadge, Modal, Toast, OfficerNotifBell, OpApiState, Pagination, usePagination });

@@ -16,7 +16,7 @@ public sealed class CatalogService
         await _db.ServiceCategories
             .Where(c => includeInactive || c.IsActive)
             .OrderBy(c => c.DisplayOrder).ThenBy(c => c.Name)
-            .Select(c => new ServiceCategoryDto(c.Id, c.Code, c.Name, c.Description, c.ParentId, c.DisplayOrder, c.IsActive))
+            .Select(c => new ServiceCategoryDto(c.Id, c.Code, c.Name, c.NameEn, c.Description, c.DescriptionEn, c.ParentId, c.DisplayOrder, c.IsActive))
             .ToListAsync(ct);
 
     public async Task<ServiceCategoryDto> CreateCategoryAsync(CreateServiceCategoryDto dto, CancellationToken ct = default)
@@ -28,7 +28,9 @@ public sealed class CatalogService
         {
             Code = dto.Code,
             Name = dto.Name,
+            NameEn = dto.NameEn,
             Description = dto.Description,
+            DescriptionEn = dto.DescriptionEn,
             ParentId = dto.ParentId,
             DisplayOrder = dto.DisplayOrder
         };
@@ -42,7 +44,9 @@ public sealed class CatalogService
         var entity = await _db.ServiceCategories.FirstOrDefaultAsync(c => c.Id == id, ct)
             ?? throw NotFoundException.For("Service category", id);
         entity.Name = dto.Name;
+        entity.NameEn = dto.NameEn;
         entity.Description = dto.Description;
+        entity.DescriptionEn = dto.DescriptionEn;
         entity.ParentId = dto.ParentId;
         entity.DisplayOrder = dto.DisplayOrder;
         entity.IsActive = dto.IsActive;
@@ -61,10 +65,12 @@ public sealed class CatalogService
     }
 
     // ----- Public services -----
-    public async Task<IReadOnlyList<PublicServiceDto>> GetServicesAsync(Guid? categoryId, bool includeInactive, CancellationToken ct = default)
+    public async Task<IReadOnlyList<PublicServiceDto>> GetServicesAsync(Guid? categoryId, bool includeInactive, bool? featured = null, CancellationToken ct = default)
     {
         var rows = await _db.PublicServices
-            .Where(s => (includeInactive || s.IsActive) && (categoryId == null || s.CategoryId == categoryId))
+            .Where(s => (includeInactive || s.IsActive)
+                        && (categoryId == null || s.CategoryId == categoryId)
+                        && (featured == null || s.IsFeatured == featured))
             .OrderBy(s => s.Name)
             .ToListAsync(ct);
         return rows.Select(ToDto).ToList();
@@ -89,7 +95,9 @@ public sealed class CatalogService
             CategoryId = dto.CategoryId,
             Code = dto.Code,
             Name = dto.Name,
+            NameEn = dto.NameEn,
             Description = dto.Description,
+            DescriptionEn = dto.DescriptionEn,
             RequiredDocuments = dto.RequiredDocuments,
             ProcessingTimeDays = dto.ProcessingTimeDays,
             Fee = dto.Fee,
@@ -109,7 +117,9 @@ public sealed class CatalogService
 
         entity.CategoryId = dto.CategoryId;
         entity.Name = dto.Name;
+        entity.NameEn = dto.NameEn;
         entity.Description = dto.Description;
+        entity.DescriptionEn = dto.DescriptionEn;
         entity.RequiredDocuments = dto.RequiredDocuments;
         entity.ProcessingTimeDays = dto.ProcessingTimeDays;
         entity.Fee = dto.Fee;
@@ -128,8 +138,8 @@ public sealed class CatalogService
     }
 
     private static ServiceCategoryDto ToDto(ServiceCategory c) =>
-        new(c.Id, c.Code, c.Name, c.Description, c.ParentId, c.DisplayOrder, c.IsActive);
+        new(c.Id, c.Code, c.Name, c.NameEn, c.Description, c.DescriptionEn, c.ParentId, c.DisplayOrder, c.IsActive);
 
     private static PublicServiceDto ToDto(PublicService s) =>
-        new(s.Id, s.CategoryId, s.Code, s.Name, s.Description, s.RequiredDocuments, s.ProcessingTimeDays, s.Fee, s.ServiceLevel, s.IsActive);
+        new(s.Id, s.CategoryId, s.Code, s.Name, s.NameEn, s.Description, s.DescriptionEn, s.RequiredDocuments, s.ProcessingTimeDays, s.Fee, s.ServiceLevel, s.IsActive, s.IsFeatured);
 }

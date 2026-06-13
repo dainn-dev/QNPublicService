@@ -1,3 +1,4 @@
+using DVC.Domain.Announcements;
 using DVC.Domain.Audit;
 using DVC.Domain.Catalog;
 using DVC.Domain.Engagement;
@@ -24,18 +25,22 @@ public interface IAppDbContext
     DbSet<ServicePointService> ServicePointServices { get; }
     DbSet<ServicePointImage> ServicePointImages { get; }
     DbSet<OfficerProfile> OfficerProfiles { get; }
+    DbSet<UserProfile> UserProfiles { get; }
     DbSet<FeedbackCategory> FeedbackCategories { get; }
     DbSet<FeedbackReport> FeedbackReports { get; }
     DbSet<FeedbackAttachment> FeedbackAttachments { get; }
     DbSet<FeedbackComment> FeedbackComments { get; }
     DbSet<FeedbackStatusHistory> FeedbackStatusHistory { get; }
     DbSet<Notification> Notifications { get; }
+    DbSet<NotificationCampaign> NotificationCampaigns { get; }
     DbSet<AuditLog> AuditLogs { get; }
     DbSet<ServiceRequest> ServiceRequests { get; }
     DbSet<ServiceRequestDocument> ServiceRequestDocuments { get; }
+    DbSet<ServiceRequestComment> ServiceRequestComments { get; }
     DbSet<ServiceRequestStatusHistory> ServiceRequestStatusHistory { get; }
     DbSet<ServicePointRating> ServicePointRatings { get; }
     DbSet<ServiceRequestRating> ServiceRequestRatings { get; }
+    DbSet<Announcement> Announcements { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

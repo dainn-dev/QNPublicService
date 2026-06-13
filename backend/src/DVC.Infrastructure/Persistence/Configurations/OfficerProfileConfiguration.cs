@@ -14,6 +14,7 @@ public sealed class OfficerProfileConfiguration : IEntityTypeConfiguration<Offic
         b.Property(x => x.Department).HasMaxLength(255);
         b.Property(x => x.Position).HasMaxLength(255);
         b.Property(x => x.PhoneNumber).HasMaxLength(30);
+        b.Property(x => x.Area).HasMaxLength(1000);
         b.HasIndex(x => x.UserId).IsUnique();
         b.HasIndex(x => x.ServicePointId);
     }
